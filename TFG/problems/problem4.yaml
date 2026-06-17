@@ -1,0 +1,144 @@
+# =============================================================================
+#  PROBLEMA 4 - escenario para el generador PDDL (ver TFG/problem_generator.py)
+#  Generado por generar-escenario. Uso: python3 run_problem.py problems/problem4.yaml
+# =============================================================================
+
+CONFIG:
+  problem_name: drone_problem4
+  domain_name: drone_domain
+  output_file: problem4.pddl
+
+  photo_time: 5.0      # segundos para tomar una fotografia
+  recharge_rate: 10.0  # carga recuperada por segundo
+  fly_cost_factor: 0.1 # bateria consumida por metro volado
+  decimals: 2          # decimales con los que se escriben los numeros
+
+  takeoff_speed: 1.0
+  land_speed: 0.5
+
+# Coordenadas (x, y, z) en metros. z es la ALTITUD.
+COORDS:
+  # ---- bases (suelo + aire) ----
+  base1_ground: [-13.5, -3.0, 0.0]
+  base1_air:    [-13.5, -3.0, 3.0]
+  base2_ground: [-13.5, -1.0, 0.0]
+  base2_air:    [-13.5, -1.0, 3.0]
+  base3_ground: [-13.5, 1.0, 0.0]
+  base3_air:    [-13.5, 1.0, 3.0]
+  base4_ground: [-13.5, 3.0, 0.0]
+  base4_air:    [-13.5, 3.0, 3.0]
+  # ---- objetivos (tgt) y viewpoints (vp) ----
+  tgt1: [8.9, 1.4, 3.1]
+  vp1: [9.61, 2.11, 4.1]
+  tgt2: [6.1, -1.4, 3.1]
+  vp2: [5.39, -2.11, 4.1]
+  tgt3: [8.9, -1.4, 3.1]
+  vp3: [9.61, -2.11, 4.1]
+  tgt4: [6.1, 1.4, 3.1]
+  vp4: [5.39, 2.11, 4.1]
+  tgt5: [-2.35, 7.9, 6.1]
+  vp5: [-1.64, 8.6, 7.1]
+  tgt6: [-5.15, 5.1, 6.1]
+  vp6: [-5.86, 4.39, 7.1]
+  tgt7: [-2.35, 5.1, 6.1]
+  vp7: [-1.64, 4.39, 7.1]
+  tgt8: [-5.15, 7.9, 6.1]
+  vp8: [-5.86, 8.6, 7.1]
+  tgt9: [-0.85, -5.1, 3.1]
+  vp9: [0.05, -4.66, 4.1]
+  tgt10: [-6.65, -7.9, 3.1]
+  vp10: [-7.55, -8.33, 4.1]
+  tgt11: [-0.85, -7.9, 3.1]
+  vp11: [0.05, -8.33, 4.1]
+  tgt12: [-6.65, -5.1, 3.1]
+  vp12: [-7.55, -4.66, 4.1]
+  # ---- hubs del grafo (waypoints intermedios) ----
+  wp1: [0.0, 0.0, 8.0]
+  wp2: [7.5, 0.0, 5.0]
+  wp3: [-3.75, 6.5, 8.0]
+  wp4: [-3.75, -6.5, 5.0]
+
+# Tipo (air / ground), margen de bateria y flags de base.
+WAYPOINTS:
+  base1_ground: {type: ground, safety_margin: 1.0, is_recharge: true, ocupied: true}
+  base1_air:    {type: air, safety_margin: 30.0}
+  base2_ground: {type: ground, safety_margin: 1.0, is_recharge: true, ocupied: true}
+  base2_air:    {type: air, safety_margin: 30.0}
+  base3_ground: {type: ground, safety_margin: 1.0, is_recharge: true, ocupied: true}
+  base3_air:    {type: air, safety_margin: 30.0}
+  base4_ground: {type: ground, safety_margin: 1.0, is_recharge: true, ocupied: true}
+  base4_air:    {type: air, safety_margin: 30.0}
+  vp1: {type: air, safety_margin: 20.0}
+  vp2: {type: air, safety_margin: 20.0}
+  vp3: {type: air, safety_margin: 20.0}
+  vp4: {type: air, safety_margin: 20.0}
+  vp5: {type: air, safety_margin: 20.0}
+  vp6: {type: air, safety_margin: 20.0}
+  vp7: {type: air, safety_margin: 20.0}
+  vp8: {type: air, safety_margin: 20.0}
+  vp9: {type: air, safety_margin: 20.0}
+  vp10: {type: air, safety_margin: 20.0}
+  vp11: {type: air, safety_margin: 20.0}
+  vp12: {type: air, safety_margin: 20.0}
+  wp1: {type: air, safety_margin: 20.0}
+  wp2: {type: air, safety_margin: 20.0}
+  wp3: {type: air, safety_margin: 20.0}
+  wp4: {type: air, safety_margin: 20.0}
+
+# Targets a fotografiar.
+TARGETS: [tgt1, tgt2, tgt3, tgt4, tgt5, tgt6, tgt7, tgt8, tgt9, tgt10, tgt11, tgt12]
+
+# Transiciones suelo <-> aire: [ground, air, takeoff_cost, land_cost]
+LANDING_PADS:
+  - [base1_ground, base1_air, 2.0, 1.0]
+  - [base2_ground, base2_air, 2.0, 1.0]
+  - [base3_ground, base3_air, 2.0, 1.0]
+  - [base4_ground, base4_air, 2.0, 1.0]
+
+# Conectividad aire <-> aire (grafo en estrella por hubs; la ida y la
+# vuelta se generan automaticamente en el generador PDDL).
+VALID_PATHS:
+  # bases -> hub central
+  - [base1_air, wp1]
+  - [base2_air, wp1]
+  - [base3_air, wp1]
+  - [base4_air, wp1]
+  # hub central -> hub de cada obstaculo
+  - [wp1, wp2]
+  - [wp1, wp3]
+  - [wp1, wp4]
+  # hub de obstaculo -> viewpoints de sus objetivos
+  - [wp2, vp1]
+  - [wp2, vp2]
+  - [wp2, vp3]
+  - [wp2, vp4]
+  - [wp3, vp5]
+  - [wp3, vp6]
+  - [wp3, vp7]
+  - [wp3, vp8]
+  - [wp4, vp9]
+  - [wp4, vp10]
+  - [wp4, vp11]
+  - [wp4, vp12]
+
+# Desde que viewpoint se puede fotografiar cada target.
+CAN_PHOTOGRAPH:
+  vp1: tgt1
+  vp2: tgt2
+  vp3: tgt3
+  vp4: tgt4
+  vp5: tgt5
+  vp6: tgt6
+  vp7: tgt7
+  vp8: tgt8
+  vp9: tgt9
+  vp10: tgt10
+  vp11: tgt11
+  vp12: tgt12
+
+# Posicion inicial, bateria, velocidad y base objetivo final de cada dron.
+DRONES:
+  drone1: {start: base1_ground, battery_level: 100.0, battery_capacity: 100.0, speed: 1.0, goal: base1_ground}
+  drone2: {start: base2_ground, battery_level: 100.0, battery_capacity: 100.0, speed: 1.0, goal: base2_ground}
+  drone3: {start: base3_ground, battery_level: 100.0, battery_capacity: 100.0, speed: 1.0, goal: base3_ground}
+  drone4: {start: base4_ground, battery_level: 100.0, battery_capacity: 100.0, speed: 1.0, goal: base4_ground}

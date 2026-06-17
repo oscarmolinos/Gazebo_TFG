@@ -1,0 +1,82 @@
+world_name: "world_problem4"
+origin: 
+    latitude: 40.4405287
+    longitude: -3.6898277
+    altitude: 100.0
+drones:
+  - model_type: "quadrotor_base"
+    model_name: "drone1"
+    flight_time: 60
+    xyz:
+      - -13.5
+      - -3.0
+      - 0.0
+    rpy:
+      - 0.0
+      - 0.0
+      - 0.0
+    payload:
+      - model_type: "gps"
+        model_name: "gps"
+      - model_type: "gimbal_speed"
+        model_name: "gimbal"
+        payload:
+          model_type: "vga_camera"
+          model_name: "camera"
+  - model_type: "quadrotor_base"
+    model_name: "drone2"
+    flight_time: 60
+    xyz:
+      - -13.5
+      - -1.0
+      - 0.0
+    rpy:
+      - 0.0
+      - 0.0
+      - 0.0
+    payload:
+      - model_type: "gps"
+        model_name: "gps"
+      - model_type: "gimbal_speed"
+        model_name: "gimbal"
+        payload:
+          model_type: "vga_camera"
+          model_name: "camera"
+  - model_type: "quadrotor_base"
+    model_name: "drone3"
+    flight_time: 60
+    xyz:
+      - -13.5
+      - 1.0
+      - 0.0
+    rpy:
+      - 0.0
+      - 0.0
+      - 0.0
+    payload:
+      - model_type: "gps"
+        model_name: "gps"
+      - model_type: "gimbal_speed"
+        model_name: "gimbal"
+        payload:
+          model_type: "vga_camera"
+          model_name: "camera"
+  - model_type: "quadrotor_base"
+    model_name: "drone4"
+    flight_time: 60
+    xyz:
+      - -13.5
+      - 3.0
+      - 0.0
+    rpy:
+      - 0.0
+      - 0.0
+      - 0.0
+    payload:
+      - model_type: "gps"
+        model_name: "gps"
+      - model_type: "gimbal_speed"
+        model_name: "gimbal"
+        payload:
+          model_type: "vga_camera"
+          model_name: "camera"

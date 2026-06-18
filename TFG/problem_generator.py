@@ -232,10 +232,19 @@ def write_init(scenario):
     L.append("    ; CONFIGURACIÓN DE LAS BASES")
     for wp, data in waypoints.items():
         if data.get("is_recharge"):
-            line = f"    (is_recharge {wp})"
-            if data.get("ocupied"):
-                line += f" (ocupied {wp})"
-            L.append(line)
+            L.append(f"    (is_recharge {wp})")
+    L.append("")
+
+    # --- Waypoints libres: solo los aéreos (las bases de suelo las ocupan los drones) ---
+    air_wps = [wp for wp, data in waypoints.items() if data["type"] == "air"]
+    L.append("    ; WAYPOINTS LIBRES (las bases de suelo NO estan libres: las ocupan los drones)")
+    L.append("    " + " ".join(f"(free {wp})" for wp in air_wps))
+    L.append("")
+
+    # --- Targets pendientes de fotografiar ---
+    targets = scenario['TARGETS']
+    L.append("    ; TARGETS PENDIENTES DE FOTOGRAFIAR")
+    L.append("    " + " ".join(f"(pending {tgt})" for tgt in targets))
     L.append("")
 
     # --- Relación suelo <-> aire (takeoff / land) ---

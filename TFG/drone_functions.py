@@ -291,22 +291,22 @@ def do_fly(drone: DroneInterface, origin: str, dest: str, speed: float,
            coords: dict, viewpoint_target: dict) -> None:
     """
     Volar a 'dest'. Si 'dest' es un viewpoint con target asociado, el dron llega
-    orientado hacia ese target; si no, se orienta hacia el propio destino.
+    orientado hacia ese target; si no, sigue el path encarado al destino.
     """
     p_dest = list(coords[dest])
+    t = elapsed(drone)
+
     if dest in viewpoint_target:
         face_point = list(coords[viewpoint_target[dest]])   # mirar al target
         face_name = viewpoint_target[dest]
+        yaw = yaw_to_face(p_dest, face_point)
+        print(f'[{t:7.3f}][{drone.drone_id}] fly {origin} -> {dest} facing {face_name} '
+              f'(yaw={math.degrees(yaw):.1f} deg)')
+        drone.go_to.go_to_point_with_yaw(p_dest, angle=yaw, speed=speed)
     else:
-        face_point = p_dest                                  # mirar al destino
-        face_name = dest
+        print(f'[{t:7.3f}][{drone.drone_id}] fly {origin} -> {dest} (path facing)')
+        drone.go_to.go_to_point_path_facing(p_dest, speed=speed)
 
-    yaw = yaw_to_face(p_dest, face_point)
-    t = elapsed(drone)
-    print(f'[{t:7.3f}][{drone.drone_id}] fly {origin} -> {dest} facing {face_name} '
-          f'(yaw={math.degrees(yaw):.1f} deg)')
-
-    drone.go_to.go_to_point_with_yaw(p_dest, angle=yaw, speed=speed)
     print(f'[{drone.drone_id}] in {dest}')
 
 
@@ -318,13 +318,16 @@ def do_land(drone: DroneInterface, air: str, ground: str) -> None:
 
 
 def do_take_photo(drone: DroneInterface, viewpoint: str, target: str, coords: dict) -> None:
-    """Orientar el gimbal hacia el target y fotografiar (bloqueante)."""
+    """Orientar el gimbal hacia el target y fotografiar exactamente 5 segundos."""
     p_vp = list(coords[viewpoint])
     p_tgt = list(coords[target])
-    t = elapsed(drone)
-    print(f'[{t:7.3f}][{drone.drone_id}] take_photo {viewpoint} -> {target}')
+    t_start = elapsed(drone)
+    print(f'[{t_start:7.3f}][{drone.drone_id}] take_photo {viewpoint} -> {target}')
     gimbal_orientation(drone, p_vp, p_tgt)
     take_photo(drone, f'photo_{drone.drone_id}_{target}.png')
+
+    while elapsed(drone) - t_start < 5.0:
+        sleep(0.01)
 
 
 # =============================================================================

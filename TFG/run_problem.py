@@ -18,12 +18,13 @@ Uso:
 import argparse
 import os
 
+import inquirer
 import yaml
 
 import problem_generator as pg
 import drone_functions as df
-from run_planner import run_planner
-from plan_parser import load_plans
+from run_planner import run_malama, run_optic
+from plan_parser import load_malama_plans, load_optic_plan
 
 
 def confirm(msg: str = 'Continuar') -> bool:
@@ -54,13 +55,12 @@ def main():
     config = scenario['CONFIG']
 
     malama_dir = os.path.expanduser("~/MA-LAMA")
+    optic_dir = os.path.expanduser("~/OPTIC")
     problem_path = os.path.join(malama_dir, "domains", config["output_file"])
-    plan_path = os.path.join(malama_dir, "final_plan.txt")
 
     # --- 1. GENERAR PROBLEMA PDDL ---
     generar = True
     if os.path.exists(problem_path):
-        # el problema ya existe: preguntar si rehacerlo
         generar = confirm(f"Ya existe '{config['output_file']}'. ¿Generarlo de nuevo?")
 
     if generar:
@@ -69,31 +69,50 @@ def main():
     else:
         print("Reutilizando el problema existente.\n")
 
-    # --- 2. EJECUTAR PLANIFICADOR ---
+    # --- 2. ELEGIR PLANIFICADOR ---
+    respuesta = inquirer.prompt([
+        inquirer.List(
+            'planner',
+            message='¿Qué planificador usar?',
+            choices=['MA-LAMA', 'OPTIC'],
+        )
+    ])
+    planner = respuesta['planner']
+
+    if planner == 'MA-LAMA':
+        plan_path = os.path.join(malama_dir, "final_plan.txt")
+    else:
+        plan_path = os.path.join(optic_dir, "optic_plan.txt")
+
+    # --- 3. EJECUTAR PLANIFICADOR ---
     planificar = True
     if os.path.exists(plan_path):
-        # ya hay un plan: preguntar si replanificar
         planificar = confirm("Ya existe un plan. ¿Ejecutar el planificador de nuevo?")
 
     if planificar:
-        if not run_planner(config):
+        ok = run_malama(config) if planner == 'MA-LAMA' else run_optic(config)
+        if not ok:
             print("Error en el planificador. Abortando.")
             return
         print("Planificador completado.\n")
     else:
         print("Reutilizando el plan existente.\n")
 
-    # --- 3. IMPORTAR PLAN ---
+    # --- 4. IMPORTAR PLAN ---
     if not confirm("¿Cargar el plan generado?"):
         return
 
-    plans = load_plans(malama_dir)
+    if planner == 'MA-LAMA':
+        plans = load_malama_plans(malama_dir)
+    else:
+        plans = load_optic_plan(plan_path)
+
     if not plans:
         print("No se cargaron planes. Abortando.")
         return
     print("Plan cargado.\n")
 
-    # --- 4. EJECUTAR MISION EN SIMULADOR ---
+    # --- 5. EJECUTAR MISION EN SIMULADOR ---
     if not confirm("¿Ejecutar misión en el simulador?"):
         return
 

@@ -12,8 +12,7 @@ COMO USARLO DESDE UN SCRIPT DE PROBLEMA
 ------------------------------------------------------------------------------
 Los datos del escenario llegan en un diccionario `scenario` (cargado del YAML
 del problema) y los planes en un diccionario `plans` (de plan_parser). Ambos se
-pasan como ARGUMENTO a las funciones: este modulo NO usa variables globales que
-el script tenga que rellenar.
+pasan como ARGUMENTO a las funciones.
 
     import drone_functions as df
 
@@ -27,7 +26,7 @@ el script tenga que rellenar.
     df.execute_mission(drones, scenario, plans)
     df.shutdown_drones(drones)
 
-Asi, toda la logica (estas ~250 lineas) vive aqui una sola vez, y cada problema
+Asi, toda la logica vive aqui una sola vez, y cada problema
 nuevo son solo los datos (scenario) + el plan + la llamada a run().
 
 Por que un hilo por dron: cada DroneInterface es un nodo ROS 2 independiente con
@@ -36,7 +35,6 @@ comparte estado ROS entre hilos), asi que no hay condiciones de carrera. Que un
 dron este bloqueado fotografiando no frena a los demas.
 """
 
-import argparse
 import math
 import threading
 from time import sleep
@@ -61,42 +59,6 @@ import matplotlib.image as mpimg
 
 
 # =============================================================================
-#  FORMA DE LOS DATOS DEL ESCENARIO
-#  Los datos llegan en el dict `scenario` (del YAML) y los planes en `plans`
-#  (de plan_parser); ambos se pasan como argumento a las funciones de abajo.
-#  De `scenario` se usan estas claves:
-#     COORDS         -> nombre de waypoint -> (x, y, z) en metros
-#     CAN_PHOTOGRAPH -> viewpoint -> target que fotografia desde el
-#     DRONES[ns]['speed'] -> velocidad de crucero (m/s) de cada dron
-#  Y `plans` es: nombre de dron -> lista de acciones (tuplas).
-#  A continuación se muestra la forma que deben tener:
-    # COORDS = {
-    #     # ---- ZONA A ----        x      y     z
-    #     "base1_ground": (-5.0,  1.5, 0.0),
-    #     "base1_air":    (-5.0,  1.5, 2.0),
-    #     "vp1":          (-2.4,  2.4, 4.1),
-    #     "vp2":          ( 2.4,  2.4, 4.1),
-    #     "tgt1":         (-1.4,  1.4, 3.1),
-    #     "tgt2":         ( 1.4,  1.4, 3.1),
-
-    #     # ---- ZONA B ----        x      y     z
-    #     "base2_ground": (-5.0, -1.5, 0.0),
-    #     "base2_air":    (-5.0, -1.5, 2.0),
-    #     "vp3":          (-2.4, -2.4, 4.1),
-    #     "vp4":          ( 2.4, -2.4, 4.1),
-    #     "tgt3":         (-1.4, -1.4, 3.1),
-    #     "tgt4":         ( 1.4, -1.4, 3.1),
-    # }
-
-    # velocidad por dron: scenario['DRONES']["drone1"]["speed"] = 1.0, ...
-
-    # CAN_PHOTOGRAPH = {
-    #     "vp1": "tgt1",
-    #     "vp2": "tgt2",
-    #     "vp3": "tgt3",
-    #     "vp4": "tgt4",
-    # }
-
     # plans = {
     #     "drone1": [
     #         ("takeoff",    "base1_ground", "base1_air"),

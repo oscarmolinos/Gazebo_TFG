@@ -18,7 +18,6 @@ CONFIG:
 
 # Coordenadas (x, y, z) en metros. z es la ALTITUD.
 COORDS:
-  # ---- ZONA A ----
   base1_ground: [-5.0, 1.5, 0.0]
   base1_air:    [-5.0, 1.5, 2.0]
   vp1:          [-2.4, 2.4, 4.1]
@@ -26,7 +25,6 @@ COORDS:
   tgt1:         [-1.4, 1.4, 3.1]
   tgt2:         [1.4, 1.4, 3.1]
 
-  # ---- ZONA B ----
   base2_ground: [-5.0, -1.5, 0.0]
   base2_air:    [-5.0, -1.5, 2.0]
   vp3:          [-2.4, -2.4, 4.1]
@@ -36,11 +34,11 @@ COORDS:
 
   wp1:          [0.0, 0.0, 4.0]
 
-# Tipo (air / ground), margen de batería y flags de base.
+# Tipo (air / ground) y margen de batería.
 WAYPOINTS:
-  base1_ground: {type: ground, safety_margin: 1.0, is_recharge: true, ocupied: true}
+  base1_ground: {type: ground, safety_margin: 1.0, is_recharge: true}
   base1_air:    {type: air, safety_margin: 20.0}
-  base2_ground: {type: ground, safety_margin: 1.0, is_recharge: true, ocupied: true}
+  base2_ground: {type: ground, safety_margin: 1.0, is_recharge: true}
   base2_air:    {type: air, safety_margin: 20.0}
 
   vp1: {type: air, safety_margin: 20.0}
@@ -52,6 +50,9 @@ WAYPOINTS:
 
 # Targets a fotografiar.
 TARGETS: [tgt1, tgt2, tgt3, tgt4]
+
+# Targets que ya están fotografiados
+PHOTOGRAPHED: []
 
 # Transiciones suelo <-> aire: [ground, air, takeoff_cost, land_cost]
 LANDING_PADS:
@@ -84,4 +85,4 @@ CAN_PHOTOGRAPH:
 # Posición inicial, batería, velocidad y base objetivo final de cada dron.
 DRONES:
   drone1: {start: base1_ground, battery_level: 100.0, battery_capacity: 100.0, speed: 1.0, goal: base1_ground}
-  drone2: {start: base2_ground, battery_level: 100.0, battery_capacity: 100.0, speed: 3.0, goal: base2_ground}
+  drone2: {start: base2_ground, battery_level: 100.0, battery_capacity: 100.0, speed: 1.0, goal: base2_ground}

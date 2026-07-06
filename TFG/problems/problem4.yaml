@@ -18,7 +18,6 @@ CONFIG:
 
 # Coordenadas (x, y, z) en metros. z es la ALTITUD.
 COORDS:
-  # ---- bases (suelo + aire) ----
   base1_ground: [-13.5, -3.0, 0.0]
   base1_air:    [-13.5, -3.0, 3.0]
   base2_ground: [-13.5, -1.0, 0.0]
@@ -27,46 +26,47 @@ COORDS:
   base3_air:    [-13.5, 1.0, 3.0]
   base4_ground: [-13.5, 3.0, 0.0]
   base4_air:    [-13.5, 3.0, 3.0]
-  # ---- objetivos (tgt) y viewpoints (vp) ----
+
   tgt1: [8.9, 1.4, 3.1]
-  vp1: [9.61, 2.11, 4.1]
   tgt2: [6.1, -1.4, 3.1]
-  vp2: [5.39, -2.11, 4.1]
   tgt3: [8.9, -1.4, 3.1]
-  vp3: [9.61, -2.11, 4.1]
   tgt4: [6.1, 1.4, 3.1]
-  vp4: [5.39, 2.11, 4.1]
   tgt5: [-2.35, 7.9, 6.1]
-  vp5: [-1.64, 8.6, 7.1]
   tgt6: [-5.15, 5.1, 6.1]
-  vp6: [-5.86, 4.39, 7.1]
   tgt7: [-2.35, 5.1, 6.1]
-  vp7: [-1.64, 4.39, 7.1]
   tgt8: [-5.15, 7.9, 6.1]
-  vp8: [-5.86, 8.6, 7.1]
   tgt9: [-0.85, -5.1, 3.1]
-  vp9: [0.05, -4.66, 4.1]
   tgt10: [-6.65, -7.9, 3.1]
-  vp10: [-7.55, -8.33, 4.1]
   tgt11: [-0.85, -7.9, 3.1]
-  vp11: [0.05, -8.33, 4.1]
   tgt12: [-6.65, -5.1, 3.1]
+
+  vp1: [9.61, 2.11, 4.1]
+  vp2: [5.39, -2.11, 4.1]
+  vp3: [9.61, -2.11, 4.1]
+  vp4: [5.39, 2.11, 4.1]
+  vp5: [-1.64, 8.6, 7.1]
+  vp6: [-5.86, 4.39, 7.1]
+  vp7: [-1.64, 4.39, 7.1]
+  vp8: [-5.86, 8.6, 7.1]
+  vp9: [0.05, -4.66, 4.1]
+  vp10: [-7.55, -8.33, 4.1]
+  vp11: [0.05, -8.33, 4.1]
   vp12: [-7.55, -4.66, 4.1]
-  # ---- hubs del grafo (waypoints intermedios) ----
+
   wp1: [0.0, 0.0, 8.0]
   wp2: [7.5, 0.0, 5.0]
   wp3: [-3.75, 6.5, 8.0]
   wp4: [-3.75, -6.5, 5.0]
 
-# Tipo (air / ground), margen de bateria y flags de base.
+# Tipo (air / ground) y margen de batería.
 WAYPOINTS:
-  base1_ground: {type: ground, safety_margin: 1.0, is_recharge: true, ocupied: true}
+  base1_ground: {type: ground, safety_margin: 1.0, is_recharge: true}
   base1_air:    {type: air, safety_margin: 30.0}
-  base2_ground: {type: ground, safety_margin: 1.0, is_recharge: true, ocupied: true}
+  base2_ground: {type: ground, safety_margin: 1.0, is_recharge: true}
   base2_air:    {type: air, safety_margin: 30.0}
-  base3_ground: {type: ground, safety_margin: 1.0, is_recharge: true, ocupied: true}
+  base3_ground: {type: ground, safety_margin: 1.0, is_recharge: true}
   base3_air:    {type: air, safety_margin: 30.0}
-  base4_ground: {type: ground, safety_margin: 1.0, is_recharge: true, ocupied: true}
+  base4_ground: {type: ground, safety_margin: 1.0, is_recharge: true}
   base4_air:    {type: air, safety_margin: 30.0}
   vp1: {type: air, safety_margin: 20.0}
   vp2: {type: air, safety_margin: 20.0}
@@ -88,6 +88,9 @@ WAYPOINTS:
 # Targets a fotografiar.
 TARGETS: [tgt1, tgt2, tgt3, tgt4, tgt5, tgt6, tgt7, tgt8, tgt9, tgt10, tgt11, tgt12]
 
+# Targets que ya están fotografiados
+PHOTOGRAPHED: []
+
 # Transiciones suelo <-> aire: [ground, air, takeoff_cost, land_cost]
 LANDING_PADS:
   - [base1_ground, base1_air, 2.0, 1.0]
@@ -95,19 +98,32 @@ LANDING_PADS:
   - [base3_ground, base3_air, 2.0, 1.0]
   - [base4_ground, base4_air, 2.0, 1.0]
 
-# Conectividad aire <-> aire (grafo en estrella por hubs; la ida y la
-# vuelta se generan automaticamente en el generador PDDL).
+# Conectividad aire <-> aire (se declara una vez por par; la ida y la vuelta
+# se generan automáticamente).
 VALID_PATHS:
-  # bases -> hub central
-  - [base1_air, wp1]
+  - [base1_air, vp12]
+  - [base1_air, vp10]
+
+  - [base2_air, vp12]
   - [base2_air, wp1]
+
+  - [base3_air, vp6]
   - [base3_air, wp1]
-  - [base4_air, wp1]
-  # hub central -> hub de cada obstaculo
+
+  - [base4_air, vp8]
+  - [base4_air, vp6]
+
   - [wp1, wp2]
   - [wp1, wp3]
   - [wp1, wp4]
-  # hub de obstaculo -> viewpoints de sus objetivos
+
+  - [wp1, vp6]
+  - [wp1, vp7]
+  - [wp1, vp4]
+  - [wp1, vp2]
+  - [wp1, vp9]
+  - [wp1, vp12]
+
   - [wp2, vp1]
   - [wp2, vp2]
   - [wp2, vp3]
@@ -120,6 +136,25 @@ VALID_PATHS:
   - [wp4, vp10]
   - [wp4, vp11]
   - [wp4, vp12]
+
+  - [vp4, vp2]
+  - [vp2, vp3]
+  - [vp3, vp1]
+  - [vp4, vp1]
+
+  - [vp8, vp5]
+  - [vp5, vp7]
+  - [vp7, vp6]
+  - [vp6, vp8]
+
+  - [vp9, vp11]
+  - [vp11, vp10]
+  - [vp10, vp12]
+  - [vp12, vp9]
+
+  - [vp7, vp4]
+  - [vp2, vp9]
+  - [vp11, vp3]
 
 # Desde que viewpoint se puede fotografiar cada target.
 CAN_PHOTOGRAPH:

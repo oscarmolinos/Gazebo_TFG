@@ -20,6 +20,14 @@ Esto significa que para crear un problema nuevo basta con:
 (todo dentro del YAML del escenario) y el PDDL se regenera solo, recalculando
 distancias euclídeas y costes de vuelo.
 
+Un dron puede arrancar (DRONES.*.start) en cualquier waypoint, ya sea una base
+de tierra o directamente un punto aéreo: el generador calcula qué waypoints
+quedan libres a partir de las posiciones de inicio de todos los drones.
+
+La clave TARGETS puede complementarse con PHOTOGRAPHED (opcional, lista de
+nombres de target) para arrancar el problema con algunos targets ya
+fotografiados de antemano.
+
 Reglas físicas automatizadas
 ----------------------------
     distance(x, y) = sqrt((x2-x1)^2 + (y2-y1)^2 + (z2-z1)^2)  (euclídea 3D, desde COORDS)
@@ -32,122 +40,6 @@ se mantienen como costes fijos definidos en LANDING_PADS.
 """
 
 import math
-
-# =============================================================================
-#  FORMA DEL ESCENARIO
-#  Los datos llegan en el diccionario `scenario` que se pasa a generate_problem().
-#  Las funciones de abajo reciben ese dict (o las piezas que necesitan) de forma
-#  explícita: NO hay variables globales de módulo que el script tenga que rellenar.
-#  A continuación se muestra la forma que debe tener cada clave del escenario:
-# =============================================================================
-    # # =============================================================================
-    # #  1. CONFIGURACIÓN GLOBAL
-    # # =============================================================================
-    # CONFIG = {
-    #     "problem_name": "drone_inspection_p2",
-    #     "domain_name":  "drone_inspection_domain",
-    #     "output_file":  "problem2_generado.pddl",
-
-    #     "photo_time":      5.0,    # segundos para tomar una fotografía
-    #     "recharge_rate":   10.0,   # carga recuperada por segundo
-    #     "fly_cost_factor": 0.1,    # batería consumida por metro volado (dist * factor)
-    #     "decimals":        2,      # decimales con los que se escriben los números
-
-    #     "takeoff_speed": 1.0,
-    #     "land_speed": 0.5,
-    # }
-
-    # # =============================================================================
-    # #  2. GEOMETRÍA: coordenadas (x, y, z) de cada punto en metros.
-    # #     z es la ALTITUD. La distancia entre puntos conectados se calcula de aquí.
-    # # =============================================================================
-    # COORDS = {
-    #     # ---- ZONA A ----            x      y     z (altitud)
-    #     "base1_ground": (-5.0, 1.5, 0.0),
-    #     "base1_air":    (-5.0, 1.5, 2.0),
-    #     "vp1":          (-2.4, 2.4, 4.1),
-    #     "vp2":          (2.4, 2.4, 4.1),
-    #     "tgt1":         (-1.4, 1.4, 3.1),
-    #     "tgt2":         (1.4, 1.4, 3.1),
-
-    #     # ---- ZONA B ----            x      y     z (altitud)
-    #     "base2_ground": (-5.0, -1.5, 0.0),
-    #     "base2_air":    (-5.0, -1.5, 2.0),
-    #     "vp3":          (-2.4, -2.4, 4.1),
-    #     "vp4":          (2.4, -2.4, 4.1),
-    #     "tgt3":         (-1.4, -1.4, 3.1),
-    #     "tgt4":         (1.4, -1.4, 3.1),
-    # }
-
-    # # =============================================================================
-    # #  3. WAYPOINTS: tipo (air / ground), margen de batería y flags de base.
-    # #     'is_recharge' y 'ocupied' solo aplican a puntos de tipo ground.
-    # # =============================================================================
-    # WAYPOINTS = {
-    #     "base1_ground": {"type": "ground", "safety_margin": 1.0,  "is_recharge": True,  "ocupied": True},
-    #     "base1_air":    {"type": "air",    "safety_margin": 20.0},
-    #     "base2_ground": {"type": "ground", "safety_margin": 1.0,  "is_recharge": True,  "ocupied": True},
-    #     "base2_air":    {"type": "air",    "safety_margin": 20.0},
-    #     "vp1":          {"type": "air",    "safety_margin": 20.0},
-    #     "vp2":          {"type": "air",    "safety_margin": 20.0},
-    #     "vp3":          {"type": "air",    "safety_margin": 20.0},
-    #     "vp4":          {"type": "air",    "safety_margin": 20.0},
-    # }
-
-    # # =============================================================================
-    # #  4. TARGETS a fotografiar.
-    # # =============================================================================
-    # TARGETS = ["tgt1", "tgt2", "tgt3", "tgt4"]
-
-    # # =============================================================================
-    # #  5. LANDING PADS: transiciones suelo <-> aire (takeoff / land).
-    # #     La 'distance' se calcula por geometría (diferencia de altitud z).
-    # #     Solo los costes son fijos. Formato:
-    # #        (ground, air, takeoff_cost, land_cost)
-    # # =============================================================================
-    # LANDING_PADS = [
-    #     ("base1_ground", "base1_air", 2.0, 1.0),
-    #     ("base2_ground", "base2_air", 2.0, 1.0),
-    # ]
-
-    # # =============================================================================
-    # #  6. CONECTIVIDAD aire <-> aire. Se declara UNA sola vez por par;
-    # #     el script genera automáticamente la ida y la vuelta.
-    # #     La distancia y el fly_cost se calculan por geometría.
-    # # =============================================================================
-    # VALID_PATHS = [
-    #     ("base1_air", "vp1"),
-    #     ("vp1",       "vp2"),
-
-    #     ("base2_air", "vp3"),
-    #     ("vp3",       "vp4"),
-
-    #     ("vp2",       "vp4"),
-
-    # ]
-
-    # # =============================================================================
-    # #  7. CAPACIDAD DE FOTOGRAFÍA: desde qué viewpoint se puede fotografiar
-    # #     cada target. {viewpoint: target}
-    # # =============================================================================
-    # CAN_PHOTOGRAPH = {
-    #     "vp1": "tgt1",
-    #     "vp2": "tgt2",
-    #     "vp3": "tgt3",
-    #     "vp4": "tgt4",
-    # }
-
-    # # =============================================================================
-    # #  8. DRONES: posición inicial, batería, velocidad y base objetivo final.
-    # # =============================================================================
-    # DRONES = {
-    #     "drone1": {"start": "base1_ground", "battery_level": 100.0,
-    #                "battery_capacity": 100.0, "speed": 1.0, "goal": "base1_ground"},
-
-    #     "drone2": {"start": "base2_ground", "battery_level": 100.0,
-    #                "battery_capacity": 100.0, "speed": 2.0, "goal": "base2_ground"},
-    # }
-
 
 # =============================================================================
 #  LÓGICA DE GENERACIÓN (genérica, recibe los datos por argumento)
@@ -235,16 +127,23 @@ def write_init(scenario):
             L.append(f"    (is_recharge {wp})")
     L.append("")
 
-    # --- Waypoints libres: solo los aéreos (las bases de suelo las ocupan los drones) ---
-    air_wps = [wp for wp, data in waypoints.items() if data["type"] == "air"]
-    L.append("    ; WAYPOINTS LIBRES (las bases de suelo NO estan libres: las ocupan los drones)")
-    L.append("    " + " ".join(f"(free {wp})" for wp in air_wps))
+    # --- Waypoints libres: cualquier waypoint que ningún dron ocupe al inicio ---
+    # (un dron puede empezar en una base de tierra o directamente en un punto
+    # aéreo; ese waypoint de partida NUNCA está libre, esté donde esté)
+    occupied_wps = {d['start'] for d in drones.values()}
+    free_wps = [wp for wp in waypoints if wp not in occupied_wps]
+    L.append("    ; WAYPOINTS LIBRES (todo waypoint no ocupado por un dron al inicio)")
+    L.append("    " + " ".join(f"(free {wp})" for wp in free_wps))
     L.append("")
 
-    # --- Targets pendientes de fotografiar ---
-    targets = scenario['TARGETS']
+    # --- Targets pendientes de fotografiar / ya fotografiados ---
+    targets      = scenario['TARGETS']
+    photographed = set(scenario.get('PHOTOGRAPHED', []))
     L.append("    ; TARGETS PENDIENTES DE FOTOGRAFIAR")
-    L.append("    " + " ".join(f"(pending {tgt})" for tgt in targets))
+    L.append("    " + " ".join(f"(pending {tgt})" for tgt in targets if tgt not in photographed))
+    if photographed:
+        L.append("    ; TARGETS YA FOTOGRAFIADOS (dados de antemano en el escenario)")
+        L.append("    " + " ".join(f"(photographed {tgt})" for tgt in targets if tgt in photographed))
     L.append("")
 
     # --- Relación suelo <-> aire (takeoff / land) ---

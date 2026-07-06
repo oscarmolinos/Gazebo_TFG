@@ -111,3 +111,4 @@ if __name__ == "__main__":
         scenario = yaml.safe_load(f)
 
     run_malama(scenario['CONFIG'])
+    run_optic(scenario['CONFIG'])

@@ -18,14 +18,13 @@ CONFIG:
 
 # Coordenadas (x, y, z) en metros. z es la ALTITUD.
 COORDS:
-  # ---- ZONA A ----
   base1_ground: [-10.0, 2.0, 0.0]
   base1_air:    [-10.0, 2.0, 3.0]
   base2_ground: [-10.0, 0.0, 0.0]
   base2_air:    [-10.0, 0.0, 3.0]
   base3_ground: [-10.0, -2.0, 0.0]
   base3_air:    [-10.0, -2.0, 3.0]
-
+  
   tgt1: [-6.4, -1.4, 3.1]
   tgt2: [-3.6, 1.4, 3.1]
   tgt3: [-1.4, -6.4, 3.1]
@@ -49,13 +48,13 @@ COORDS:
   wp5: [0.0, 0.0, 5.5]
   wp6: [0.0, -5.0, 4.0]
 
-# Tipo (air / ground), margen de batería y flags de base.
+# Tipo (air / ground) y margen de batería.
 WAYPOINTS:
-  base1_ground: {type: ground, safety_margin: 1.0, is_recharge: true, ocupied: true}
+  base1_ground: {type: ground, safety_margin: 1.0, is_recharge: true}
   base1_air:    {type: air, safety_margin: 30.0}
-  base2_ground: {type: ground, safety_margin: 1.0, is_recharge: true, ocupied: true}
+  base2_ground: {type: ground, safety_margin: 1.0, is_recharge: true}
   base2_air:    {type: air, safety_margin: 30.0}
-  base3_ground: {type: ground, safety_margin: 1.0, is_recharge: true, ocupied: true}
+  base3_ground: {type: ground, safety_margin: 1.0, is_recharge: true}
   base3_air:    {type: air, safety_margin: 30.0}
 
   vp1: {type: air, safety_margin: 20.0}
@@ -75,6 +74,9 @@ WAYPOINTS:
 
 # Targets a fotografiar.
 TARGETS: [tgt1, tgt2, tgt3, tgt4, tgt5, tgt6, tgt7]
+
+# Targets que ya están fotografiados
+PHOTOGRAPHED: []
 
 # Transiciones suelo <-> aire: [ground, air, takeoff_cost, land_cost]
 LANDING_PADS:

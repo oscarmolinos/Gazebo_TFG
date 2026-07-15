@@ -148,8 +148,9 @@ def write_init(scenario):
 
     # --- Relación suelo <-> aire (takeoff / land) ---
     L.append("    ; RELACIÓN SUELO <-> AIRE (solo se transita con takeoff / land)")
+    margin = config["action_margin"]
     for ground_wp, air_wp, takeoff, land in landing_pads:
-        dist = euclidean(ground_wp, air_wp, coords)
+        dist = euclidean(ground_wp, air_wp, coords)*margin
         L.append(f"    ; {ground_wp} <-> {air_wp}  ({fmt(dist, decimals)} m de altitud)")
         L.append(f"    (landing_pad {ground_wp} {air_wp})")
         L.append(f"    (= (distance {ground_wp} {air_wp}) {fmt(dist, decimals)}) "
@@ -161,9 +162,11 @@ def write_init(scenario):
     # --- Conectividad aire <-> aire (geometría automática, bidireccional) ---
     L.append("    ; CONECTIVIDAD ENTRE PUNTOS (distancia y coste calculados por geometría)")
     factor = config["fly_cost_factor"]
+    margin = config["action_margin"]
     for a, b in valid_paths:
         dist = euclidean(a, b, coords)
         cost = dist * factor
+        dist *= margin
         L.append(f"    ; {a} <-> {b}  ({fmt(dist, decimals)} m)")
         L.append(f"    (valid_path {a} {b}) (= (distance {a} {b}) {fmt(dist, decimals)}) "
                  f"(= (fly_cost {a} {b}) {fmt(cost, decimals)})")

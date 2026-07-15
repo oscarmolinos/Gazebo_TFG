@@ -15,6 +15,8 @@ CONFIG:
 
   takeoff_speed: 1.0
   land_speed: 0.5
+  
+  action_margin: 1.2   # margen para las acciones takeoff, fly y land (tiempo * action_margin)
 
 # Coordenadas (x, y, z) en metros. z es la ALTITUD.
 COORDS:

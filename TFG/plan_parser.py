@@ -18,19 +18,34 @@ Particularidad: en 'take_photo' el dron va EN MEDIO (posicion 3) y el target al
 final -> 'take_photo <viewpoint> <drone> <target>'. En el resto, el dron va al
 final -> '<accion> <arg1> <arg2> <drone>'.
 
-Los TIEMPOS entre corchetes se ignoran (solo importa la secuencia de acciones).
+Los TIEMPOS entre corchetes se CONSERVAN: cada accion lleva su instante de inicio
+programado (t_start) y su duracion, para que el ejecutor pueda respetar la agenda
+del planificador (esperar a la hora de cada accion, huecos de inactividad, etc.).
 
-Salida: dict { 'drone1': [ (tipo, arg1, arg2), ... ], 'drone2': [ ... ] }
-  - takeoff/fly/land -> (tipo, arg1, arg2)
-  - take_photo       -> ('take_photo', viewpoint, target)
+Salida: dict { 'drone1': [ PlannedAction, ... ], 'drone2': [ ... ] }
+  - takeoff/fly/land -> PlannedAction(kind, arg1, arg2, t_start, duration)
+  - take_photo       -> PlannedAction('take_photo', viewpoint, target, t_start, duration)
 """
 
 import glob
 import os
 import re
+from dataclasses import dataclass
 from typing import Dict, List, Tuple
 
-Action = Tuple[str, str, str]
+
+@dataclass
+class PlannedAction:
+    """Una accion del plan con su agenda (tiempos en segundos desde el t=0 de la mision)."""
+    kind: str
+    arg1: str
+    arg2: str
+    t_start: float = 0.0
+    duration: float = 0.0
+
+
+# Alias para las anotaciones de tipo ya existentes.
+Action = PlannedAction
 
 
 def parse_malama_line(line: str) -> Tuple[str, Action]:
@@ -44,6 +59,13 @@ def parse_malama_line(line: str) -> Tuple[str, Action]:
     if not line:
         return None, None
 
+    # extraer los tiempos del corchete: '[t_start, t_start, duracion]'
+    t_start, duration = 0.0, 0.0
+    m = re.search(r'\[\s*([\d.]+)\s*,\s*[\d.]+\s*,\s*([\d.]+)\s*\]', line)
+    if m:
+        t_start = float(m.group(1))
+        duration = float(m.group(2))
+
     # quitar la parte de tiempos entre corchetes: '... [0.010, 0.010, 2.000]'
     line = re.sub(r'\[.*?\]', '', line).strip()
 
@@ -55,13 +77,13 @@ def parse_malama_line(line: str) -> Tuple[str, Action]:
         viewpoint = tokens[1]
         drone = tokens[2]
         target = tokens[3]
-        action = ('take_photo', viewpoint, target)
+        action = PlannedAction('take_photo', viewpoint, target, t_start, duration)
     else:
         # formato: <accion> <arg1> <arg2> <drone>
         arg1 = tokens[1]
         arg2 = tokens[2]
         drone = tokens[3]
-        action = (kind, arg1, arg2)
+        action = PlannedAction(kind, arg1, arg2, t_start, duration)
 
     return drone, action
 
@@ -110,7 +132,7 @@ def load_malama_plans(plan_dir: str, pattern: str = 'plan_agent*.txt') -> Dict[s
 load_plans = load_malama_plans
 
 
-_OPTIC_LINE_RE = re.compile(r'^\d+\.\d+:\s*\((\S+)\s+([^)]+)\)\s*\[[\d.]+\]')
+_OPTIC_LINE_RE = re.compile(r'^(\d+\.\d+):\s*\((\S+)\s+([^)]+)\)\s*\[([\d.]+)\]')
 _KNOWN_ACTIONS = {'takeoff', 'fly', 'take_photo', 'land'}
 
 
@@ -118,27 +140,29 @@ def parse_optic_line(line: str) -> Tuple[str, Action]:
     """
     Convertir UNA linea de salida de OPTIC en (drone, accion).
 
-    Formato OPTIC: T: (accion arg1 arg2 drone)  [duracion]
+    Formato OPTIC: t_start: (accion arg1 arg2 drone)  [duracion]
     Acciones no reconocidas (recharge, etc.) se ignoran -> (None, None).
     """
     m = _OPTIC_LINE_RE.match(line.strip())
     if not m:
         return None, None
 
-    kind = m.group(1)
+    t_start = float(m.group(1))
+    kind = m.group(2)
     if kind not in _KNOWN_ACTIONS:
         return None, None
 
-    args = m.group(2).split()
+    args = m.group(3).split()
+    duration = float(m.group(4))
 
     if kind == 'take_photo':
         # take_photo vp drone target
         viewpoint, drone, target = args[0], args[1], args[2]
-        action = ('take_photo', viewpoint, target)
+        action = PlannedAction('take_photo', viewpoint, target, t_start, duration)
     else:
         # takeoff/fly/land: arg1 arg2 drone
         arg1, arg2, drone = args[0], args[1], args[2]
-        action = (kind, arg1, arg2)
+        action = PlannedAction(kind, arg1, arg2, t_start, duration)
 
     return drone, action
 

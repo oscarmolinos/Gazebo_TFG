@@ -28,15 +28,15 @@ from plan_parser import load_malama_plans, load_optic_plan
 
 
 def confirm(msg: str = 'Continuar') -> bool:
-    """Pedir confirmación al usuario (y/n)."""
-    while True:
-        respuesta = input(f"{msg} (y/n): ").strip().lower()
-        if respuesta in ['y', 'yes', 's', 'si']:
-            return True
-        elif respuesta in ['n', 'no']:
-            return False
-        else:
-            print("Respuesta inválida. Escribe 'y' o 'n'.")
+    """Pedir confirmación al usuario usando inquirer."""
+    respuesta = inquirer.prompt([
+        inquirer.Confirm(
+            'confirmar',
+            message=msg,
+            default=True,
+        )
+    ])
+    return respuesta.get('confirmar', False)
 
 
 def load_scenario(path: str) -> dict:

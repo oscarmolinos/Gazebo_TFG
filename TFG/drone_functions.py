@@ -37,6 +37,7 @@ dron este bloqueado fotografiando no frena a los demas.
 
 import math
 import threading
+from dataclasses import dataclass
 from time import sleep
 
 from as2_python_api.drone_interface import DroneInterface
@@ -81,6 +82,10 @@ import matplotlib.image as mpimg
     #         ("land",       "base2_air",    "base2_ground"),
     #     ],
     # }
+    # NOTA: desde plan_parser cada accion es un PlannedAction(kind, arg1, arg2,
+    # t_start, duration), no una tupla. Los t_start (segundos desde el t=0 de la
+    # mision) los usa drone_mission para respetar la agenda del planificador.
+    #
     # Los planes vienen de MA-LAMA:
     # from plan_parser import load_plans
     # plans = load_plans('/home/oscar/MA-LAMA')
@@ -95,6 +100,26 @@ TAKE_OFF_SPEED = 1.0
 T0 = {'value': None}
 T0_LOCK = threading.Lock()
 
+# Registro de acciones EJECUTADAS (tiempos reales) para tiempos_mision.txt.
+# Se comparte entre hilos (un hilo por dron), de ahi el lock.
+MISSION_LOG = []
+MISSION_LOG_LOCK = threading.Lock()
+
+
+@dataclass
+class ActionRecord:
+    """Tiempos reales (medidos, no planificados) de una accion ya ejecutada."""
+    drone: str
+    kind: str
+    arg1: str
+    arg2: str
+    t_start: float
+    t_end: float
+
+    @property
+    def duration(self) -> float:
+        return self.t_end - self.t_start
+
 
 # =============================================================================
 #  FUNCIONES AUXILIARES
@@ -105,11 +130,89 @@ def sim_time(drone) -> float:
 
 
 def elapsed(drone) -> float:
-    """Segundos de simulacion desde el t=0 global (primer takeoff)."""
+    """Segundos de simulacion desde el t=0 global de la mision.
+
+    Si el reloj no se ha fijado explicitamente (start_clock), se fija de forma
+    perezosa en la primera llamada.
+    """
     with T0_LOCK:
         if T0['value'] is None:
             T0['value'] = sim_time(drone)
     return sim_time(drone) - T0['value']
+
+
+def start_clock(drones: dict) -> None:
+    """Fijar el t=0 de la mision AQUI y ahora (deterministic).
+
+    Se llama justo antes de lanzar los hilos para que los t_start del plan se
+    alineen con un cero bien definido, en vez de depender del primer elapsed().
+    Todos los drones comparten el reloj de simulacion, asi que vale cualquiera.
+    """
+    any_drone = next(iter(drones.values()))
+    with T0_LOCK:
+        T0['value'] = sim_time(any_drone)
+
+
+def wait_until(drone, t_target: float) -> None:
+    """Bloquear hasta que el reloj de mision alcance t_target (s desde t=0)."""
+    while elapsed(drone) < t_target:
+        sleep(0.01)
+
+
+def record_action(drone: str, kind: str, arg1: str, arg2: str,
+                   t_start: float, t_end: float) -> None:
+    """Registrar (thread-safe) los tiempos reales de una accion ya ejecutada."""
+    with MISSION_LOG_LOCK:
+        MISSION_LOG.append(ActionRecord(drone, kind, arg1, arg2, t_start, t_end))
+
+
+def write_mission_times(path: str = "./TFG/tiempos_mision.txt") -> None:
+    """Crear (o sobreescribir) el informe de tiempos reales de la mision.
+
+    Una fila por accion ejecutada (t_inicio, accion, t_fin, duracion) agrupada
+    por dron, mas un resumen con el tiempo total de cada dron y el makespan
+    real de la mision completa.
+    """
+    with MISSION_LOG_LOCK:
+        records = list(MISSION_LOG)
+
+    if not records:
+        print('No hay tiempos que guardar (MISSION_LOG vacio)')
+        return
+
+    by_drone = {}
+    for r in records:
+        by_drone.setdefault(r.drone, []).append(r)
+
+    lines = ['TIEMPOS DE MISION', '=================', '']
+
+    for drone in sorted(by_drone):
+        actions = by_drone[drone]
+        lines.append(f'Dron: {drone}')
+        lines.append('-' * (6 + len(drone)))
+        lines.append(f"{'t_inicio':>10}  {'accion':<12}{'arg1':<16}{'arg2':<16}"
+                      f"{'t_fin':>10}{'duracion':>12}")
+        for r in actions:
+            lines.append(
+                f'{r.t_start:10.3f}  {r.kind:<12}{r.arg1:<16}{r.arg2:<16}'
+                f'{r.t_end:10.3f}{r.duration:12.3f}')
+        lines.append('')
+
+    lines.append('RESUMEN')
+    lines.append('-------')
+    total_mision = 0.0
+    for drone in sorted(by_drone):
+        t_total_dron = by_drone[drone][-1].t_end
+        total_mision = max(total_mision, t_total_dron)
+        lines.append(f'  {drone}: tiempo total = {t_total_dron:.3f} s')
+    lines.append('')
+    lines.append(f'Tiempo total de la mision (makespan): {total_mision:.3f} s')
+
+    os.makedirs(os.path.dirname(path) or '.', exist_ok=True)
+    with open(path, 'w', encoding='utf-8') as f:
+        f.write('\n'.join(lines) + '\n')
+
+    print(f'Tiempos de mision guardados en: {path}')
 
 
 def yaw_to_face(origin: list, target: list) -> float:
@@ -305,17 +408,28 @@ def drone_mission(drone: DroneInterface, plan: list, scenario: dict) -> None:
     speed = scenario['DRONES'].get(ns, {}).get('speed', DEFAULT_SPEED)
 
     for action in plan:
-        kind = action[0]
+        # Gate de agenda: no empezar la accion antes de su instante programado.
+        # Un unico mecanismo cubre los dos casos:
+        #   - hueco de inactividad del planner -> t_start futuro, se espera.
+        #   - la accion real anterior tardo menos -> se llega antes, se espera.
+        # Es solo una cota inferior: si se tardo de mas, t_start ya paso y no espera.
+        wait_until(drone, action.t_start)
+
+        kind = action.kind
+        t_real_start = elapsed(drone)
         if kind == "takeoff":
-            do_takeoff(drone, action[1], action[2], coords)
+            do_takeoff(drone, action.arg1, action.arg2, coords)
         elif kind == "fly":
-            do_fly(drone, action[1], action[2], speed, coords, viewpoint_target)
+            do_fly(drone, action.arg1, action.arg2, speed, coords, viewpoint_target)
         elif kind == "take_photo":
-            do_take_photo(drone, action[1], action[2], coords)
+            do_take_photo(drone, action.arg1, action.arg2, coords)
         elif kind == "land":
-            do_land(drone, action[1], action[2])
+            do_land(drone, action.arg1, action.arg2)
         else:
             print(f'[{ns}] accion desconocida: {kind}')
+            continue
+
+        record_action(ns, kind, action.arg1, action.arg2, t_real_start, elapsed(drone))
 
     drone.manual()
     t = elapsed(drone)
@@ -365,6 +479,13 @@ def execute_mission(drones: dict, scenario: dict, plans: dict) -> None:
     """
     clear_photos()
 
+    with MISSION_LOG_LOCK:
+        MISSION_LOG.clear()
+
+    # Fijar el t=0 de la mision aqui, para que los t_start del plan se alineen
+    # con un cero determinista antes de que ningun hilo empiece a contar.
+    start_clock(drones)
+
     threads = []
     for ns, plan in plans.items():
         t = threading.Thread(target=drone_mission, args=(drones[ns], plan, scenario), name=ns)
@@ -375,6 +496,7 @@ def execute_mission(drones: dict, scenario: dict, plans: dict) -> None:
     for t in threads:
         t.join()
 
+    write_mission_times()
     print('Todas las misiones han terminado')
 
 

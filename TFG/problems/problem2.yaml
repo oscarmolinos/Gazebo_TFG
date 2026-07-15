@@ -16,6 +16,8 @@ CONFIG:
   takeoff_speed: 1.0
   land_speed: 0.5
 
+  action_margin: 1.5   # margen para las acciones takeoff, fly y land (tiempo * action_margin)
+
 # Coordenadas (x, y, z) en metros. z es la ALTITUD.
 COORDS:
   base1_ground: [-5.0, 1.5, 0.0]
@@ -85,4 +87,4 @@ CAN_PHOTOGRAPH:
 # Posición inicial, batería, velocidad y base objetivo final de cada dron.
 DRONES:
   drone1: {start: base1_ground, battery_level: 100.0, battery_capacity: 100.0, speed: 1.0, goal: base1_ground}
-  drone2: {start: base2_ground, battery_level: 100.0, battery_capacity: 100.0, speed: 1.0, goal: base2_ground}
+  drone2: {start: base2_ground, battery_level: 100.0, battery_capacity: 100.0, speed: 0.5, goal: base2_ground}

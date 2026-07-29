@@ -86,5 +86,5 @@ CAN_PHOTOGRAPH:
 
 # Posición inicial, batería, velocidad y base objetivo final de cada dron.
 DRONES:
-  drone1: {start: base1_ground, battery_level: 100.0, battery_capacity: 100.0, speed: 1.0, goal: base1_ground}
+  drone1: {start: base1_ground, battery_level: 0.0, battery_capacity: 100.0, speed: 1.0, goal: base1_ground}
   drone2: {start: base2_ground, battery_level: 100.0, battery_capacity: 100.0, speed: 0.5, goal: base2_ground}

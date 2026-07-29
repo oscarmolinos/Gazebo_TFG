@@ -9,14 +9,18 @@ Cada linea tiene el formato:
     <accion> <arg1> <arg2> <drone> [t_inicio, t_inicio, duracion]
 
 Ejemplos:
+    recharge base1_ground drone1 [0.010, 0.010, 10.000]
     takeoff base1_ground base1_air drone1 [0.010, 0.010, 2.000]
     fly base1_air vp1 drone1 [2.010, 2.010, 3.460]
     take_photo vp1 drone1 tgt1 [5.470, 5.470, 5.000]
     land base1_air base1_ground drone1 [28.530, 28.530, 4.000]
 
-Particularidad: en 'take_photo' el dron va EN MEDIO (posicion 3) y el target al
-final -> 'take_photo <viewpoint> <drone> <target>'. En el resto, el dron va al
-final -> '<accion> <arg1> <arg2> <drone>'.
+Particularidades de formato:
+  - 'take_photo': el dron va EN MEDIO (posicion 3) y el target al final ->
+    'take_photo <viewpoint> <drone> <target>'.
+  - 'recharge': solo tiene DOS argumentos -> 'recharge <waypoint> <drone>';
+    se guarda como PlannedAction('recharge', waypoint, '', ...).
+  - el resto: el dron va al final -> '<accion> <arg1> <arg2> <drone>'.
 
 Los TIEMPOS entre corchetes se CONSERVAN: cada accion lleva su instante de inicio
 programado (t_start) y su duracion, para que el ejecutor pueda respetar la agenda
@@ -25,6 +29,7 @@ del planificador (esperar a la hora de cada accion, huecos de inactividad, etc.)
 Salida: dict { 'drone1': [ PlannedAction, ... ], 'drone2': [ ... ] }
   - takeoff/fly/land -> PlannedAction(kind, arg1, arg2, t_start, duration)
   - take_photo       -> PlannedAction('take_photo', viewpoint, target, t_start, duration)
+  - recharge         -> PlannedAction('recharge', waypoint, '', t_start, duration)
 """
 
 import glob
@@ -78,6 +83,11 @@ def parse_malama_line(line: str) -> Tuple[str, Action]:
         drone = tokens[2]
         target = tokens[3]
         action = PlannedAction('take_photo', viewpoint, target, t_start, duration)
+    elif kind == 'recharge':
+        # formato: recharge <waypoint> <drone>  (sin segundo argumento)
+        waypoint = tokens[1]
+        drone = tokens[2]
+        action = PlannedAction('recharge', waypoint, '', t_start, duration)
     else:
         # formato: <accion> <arg1> <arg2> <drone>
         arg1 = tokens[1]
@@ -128,12 +138,9 @@ def load_malama_plans(plan_dir: str, pattern: str = 'plan_agent*.txt') -> Dict[s
     return plans
 
 
-# Alias para compatibilidad con código existente
-load_plans = load_malama_plans
-
 
 _OPTIC_LINE_RE = re.compile(r'^(\d+\.\d+):\s*\((\S+)\s+([^)]+)\)\s*\[([\d.]+)\]')
-_KNOWN_ACTIONS = {'takeoff', 'fly', 'take_photo', 'land'}
+_KNOWN_ACTIONS = {'takeoff', 'fly', 'take_photo', 'land', 'recharge'}
 
 
 def parse_optic_line(line: str) -> Tuple[str, Action]:
@@ -141,7 +148,8 @@ def parse_optic_line(line: str) -> Tuple[str, Action]:
     Convertir UNA linea de salida de OPTIC en (drone, accion).
 
     Formato OPTIC: t_start: (accion arg1 arg2 drone)  [duracion]
-    Acciones no reconocidas (recharge, etc.) se ignoran -> (None, None).
+    'recharge' solo lleva dos argumentos: (recharge <waypoint> <drone>).
+    Acciones no reconocidas se ignoran -> (None, None).
     """
     m = _OPTIC_LINE_RE.match(line.strip())
     if not m:
@@ -159,6 +167,10 @@ def parse_optic_line(line: str) -> Tuple[str, Action]:
         # take_photo vp drone target
         viewpoint, drone, target = args[0], args[1], args[2]
         action = PlannedAction('take_photo', viewpoint, target, t_start, duration)
+    elif kind == 'recharge':
+        # recharge waypoint drone  (sin segundo argumento)
+        waypoint, drone = args[0], args[1]
+        action = PlannedAction('recharge', waypoint, '', t_start, duration)
     else:
         # takeoff/fly/land: arg1 arg2 drone
         arg1, arg2, drone = args[0], args[1], args[2]

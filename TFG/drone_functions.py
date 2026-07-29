@@ -382,6 +382,21 @@ def do_land(drone: DroneInterface, air: str, ground: str) -> None:
     drone.land(speed=LAND_SPEED)
 
 
+def do_recharge(drone: DroneInterface, waypoint: str, duration: float) -> None:
+    """Recargar bateria en 'waypoint': el dron esta parado, solo se espera.
+
+    No hay bateria fisica que cargar en simulacion, asi que la accion se limita
+    a consumir el tiempo que el planificador le asigno (duration segundos).
+    """
+    t_start = elapsed(drone)
+    print(f'[{t_start:7.3f}][{drone.drone_id}] recharge en {waypoint} ({duration:.3f} s)')
+
+    while elapsed(drone) - t_start < duration:
+        sleep(0.01)
+
+    print(f'[{elapsed(drone):7.3f}][{drone.drone_id}] recharge completada')
+
+
 def do_take_photo(drone: DroneInterface, viewpoint: str, target: str, coords: dict) -> None:
     """Orientar el gimbal hacia el target y fotografiar exactamente 5 segundos."""
     p_vp = list(coords[viewpoint])
@@ -425,6 +440,8 @@ def drone_mission(drone: DroneInterface, plan: list, scenario: dict) -> None:
             do_take_photo(drone, action.arg1, action.arg2, coords)
         elif kind == "land":
             do_land(drone, action.arg1, action.arg2)
+        elif kind == "recharge":
+            do_recharge(drone, action.arg1, action.duration)
         else:
             print(f'[{ns}] accion desconocida: {kind}')
             continue

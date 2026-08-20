@@ -33,6 +33,11 @@ Por que un hilo por dron: cada DroneInterface es un nodo ROS 2 independiente con
 su propio executor. Cada hilo toca UNICAMENTE la interfaz de su dron (no se
 comparte estado ROS entre hilos), asi que no hay condiciones de carrera. Que un
 dron este bloqueado fotografiando no frena a los demas.
+
+El unico estado compartido entre hilos es WP_OCUPIED (que dron ocupa cada
+waypoint), protegido por WP_OCUPIED_LOCK / WP_COND: antes de cada
+desplazamiento el dron reserva su destino y libera su origen, y si el destino
+esta ocupado espera a que quede libre.
 """
 
 import math
@@ -104,6 +109,18 @@ T0_LOCK = threading.Lock()
 # Se comparte entre hilos (un hilo por dron), de ahi el lock.
 MISSION_LOG = []
 MISSION_LOG_LOCK = threading.Lock()
+
+# Waypoints ocupados: {waypoint: dron_que_lo_ocupa}. Evita que dos drones se
+# dirijan al mismo punto: antes de CUALQUIER desplazamiento (takeoff/fly/land)
+# el dron reserva su destino y libera su origen, todo bajo el mismo lock.
+# Si el destino esta ocupado, el hilo espera en la Condition hasta que se libere.
+WP_OCUPIED = {}
+WP_OCUPIED_LOCK = threading.Lock()
+WP_COND = threading.Condition(WP_OCUPIED_LOCK)
+
+# Tiempo maximo (s) que un dron espera a que su destino quede libre. Pasado ese
+# plazo continua igualmente (con aviso) para no colgar la mision entera.
+WP_WAIT_TIMEOUT = 60.0
 
 
 @dataclass
@@ -213,6 +230,48 @@ def write_mission_times(path: str = "./TFG/tiempos_mision.txt") -> None:
         f.write('\n'.join(lines) + '\n')
 
     print(f'Tiempos de mision guardados en: {path}')
+
+
+def init_wp_ocupied(scenario: dict, plans: dict) -> None:
+    """Estado inicial de WP_OCUPIED: cada dron ocupa su punto de partida.
+
+    El punto de partida se lee de scenario['DRONES'][dron]['start']; si no
+    estuviera, se usa el origen (arg1) de la primera accion de su plan.
+    """
+    with WP_OCUPIED_LOCK:
+        WP_OCUPIED.clear()
+        for ns, plan in plans.items():
+            start = scenario.get('DRONES', {}).get(ns, {}).get('start')
+            if not start and plan:
+                start = plan[0].arg1
+            if start:
+                WP_OCUPIED[start] = ns
+
+
+def reserve_wp(drone: DroneInterface, origin: str, dest: str) -> None:
+    """Reservar 'dest' para este dron y liberar 'origin' (bloqueante).
+
+    Si 'dest' esta ocupado por otro dron, el hilo se queda esperando hasta que
+    lo libere. La reserva del destino y la liberacion del origen ocurren en la
+    MISMA seccion critica, para que nadie pueda colarse entre las dos.
+    """
+    ns = drone.drone_id
+    with WP_COND:
+        ocupante = WP_OCUPIED.get(dest)
+        if ocupante is not None and ocupante != ns:
+            print(f'[{elapsed(drone):7.3f}][{ns}] espera: {dest} ocupado por {ocupante}')
+            libre = WP_COND.wait_for(
+                lambda: WP_OCUPIED.get(dest) in (None, ns), timeout=WP_WAIT_TIMEOUT)
+            if libre:
+                print(f'[{elapsed(drone):7.3f}][{ns}] {dest} libre, continua')
+            else:
+                print(f'[{elapsed(drone):7.3f}][{ns}] AVISO: timeout de '
+                      f'{WP_WAIT_TIMEOUT:.0f} s esperando {dest}, continua igualmente')
+
+        WP_OCUPIED[dest] = ns
+        if origin and WP_OCUPIED.get(origin) == ns:
+            del WP_OCUPIED[origin]
+        WP_COND.notify_all()
 
 
 def yaw_to_face(origin: list, target: list) -> float:
@@ -431,6 +490,13 @@ def drone_mission(drone: DroneInterface, plan: list, scenario: dict) -> None:
         wait_until(drone, action.t_start)
 
         kind = action.kind
+
+        # Gate de ocupacion: un desplazamiento solo empieza si su destino esta
+        # libre. Reserva el destino y libera el origen; si esta ocupado, espera.
+        # (take_photo y recharge no mueven al dron, no tocan WP_OCUPIED.)
+        if kind in ('takeoff', 'fly', 'land'):
+            reserve_wp(drone, action.arg1, action.arg2)
+
         t_real_start = elapsed(drone)
         if kind == "takeoff":
             do_takeoff(drone, action.arg1, action.arg2, coords)
@@ -498,6 +564,9 @@ def execute_mission(drones: dict, scenario: dict, plans: dict) -> None:
 
     with MISSION_LOG_LOCK:
         MISSION_LOG.clear()
+
+    # Cada dron ocupa su punto de partida antes de que arranque ningun hilo.
+    init_wp_ocupied(scenario, plans)
 
     # Fijar el t=0 de la mision aqui, para que los t_start del plan se alineen
     # con un cero determinista antes de que ningun hilo empiece a contar.

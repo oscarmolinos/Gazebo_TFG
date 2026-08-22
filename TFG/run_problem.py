@@ -23,6 +23,7 @@ import yaml
 
 import problem_generator as pg
 import drone_functions as df
+import replanner as rp
 from run_planner import run_malama, run_optic
 from plan_parser import load_malama_plans, load_optic_plan
 
@@ -90,7 +91,12 @@ def main():
         planificar = confirm("Ya existe un plan. ¿Ejecutar el planificador de nuevo?")
 
     if planificar:
-        ok = run_malama(config) if planner == 'MA-LAMA' else run_optic(config)
+        if planner == 'MA-LAMA':
+            # Con un solo dron hay que desactivar el modo multiagente, o MA-LAMA
+            # se queda en un bucle infinito.
+            ok = run_malama(config, multiagente=len(scenario['DRONES']) > 1)
+        else:
+            ok = run_optic(config)
         if not ok:
             print("Error en el planificador. Abortando.")
             return
@@ -117,7 +123,7 @@ def main():
         return
 
     drones = df.create_drones(plans, use_sim_time=True, verbose=False)
-    df.execute_mission(drones, scenario, plans)
+    rp.run_mission(drones, scenario, plans, planner=planner)
     df.shutdown_drones(drones)
     df.show_all_photos()
     print("Misión completada.\n")

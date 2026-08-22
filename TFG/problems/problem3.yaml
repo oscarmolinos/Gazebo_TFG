@@ -141,3 +141,7 @@ DRONES:
   drone1: {start: base1_ground, battery_level: 100.0, battery_capacity: 100.0, speed: 1.0, goal: base1_ground}
   drone2: {start: base2_ground, battery_level: 100.0, battery_capacity: 100.0, speed: 1.0, goal: base2_ground}
   drone3: {start: base3_ground, battery_level: 100.0, battery_capacity: 100.0, speed: 1.0, goal: base3_ground}
+
+# Simula el fallo de un dron en un instante de tiempo
+FAILURES:
+  - {drone: drone2, at_time: 25.0}

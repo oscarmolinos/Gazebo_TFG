@@ -64,37 +64,6 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 
 
-# =============================================================================
-    # plans = {
-    #     "drone1": [
-    #         ("takeoff",    "base1_ground", "base1_air"),
-    #         ("fly",        "base1_air",    "vp1"),
-    #         ("take_photo", "vp1",          "tgt1"),
-    #         ("fly",        "vp1",          "vp2"),
-    #         ("take_photo", "vp2",          "tgt2"),
-    #         ("fly",        "vp2",          "vp1"),
-    #         ("fly",        "vp1",          "base1_air"),
-    #         ("land",       "base1_air",    "base1_ground"),
-    #     ],
-    #     "drone2": [
-    #         ("takeoff",    "base2_ground", "base2_air"),
-    #         ("fly",        "base2_air",    "vp3"),
-    #         ("take_photo", "vp3",          "tgt3"),
-    #         ("fly",        "vp3",          "vp4"),
-    #         ("take_photo", "vp4",          "tgt4"),
-    #         ("fly",        "vp4",          "vp3"),
-    #         ("fly",        "vp3",          "base2_air"),
-    #         ("land",       "base2_air",    "base2_ground"),
-    #     ],
-    # }
-    # NOTA: desde plan_parser cada accion es un PlannedAction(kind, arg1, arg2,
-    # t_start, duration), no una tupla. Los t_start (segundos desde el t=0 de la
-    # mision) los usa drone_mission para respetar la agenda del planificador.
-    #
-    # Los planes vienen de MA-LAMA:
-    # from plan_parser import load_plans
-    # plans = load_plans('/home/oscar/MA-LAMA')
-
 # Parametros de vuelo (constantes; iguales para todos los problemas).
 DEFAULT_SPEED = 1.0
 LAND_SPEED = 0.5
@@ -118,9 +87,40 @@ WP_OCUPIED = {}
 WP_OCUPIED_LOCK = threading.Lock()
 WP_COND = threading.Condition(WP_OCUPIED_LOCK)
 
-# Tiempo maximo (s) que un dron espera a que su destino quede libre. Pasado ese
-# plazo continua igualmente (con aviso) para no colgar la mision entera.
-WP_WAIT_TIMEOUT = 60.0
+# Tiempo maximo (s de SIMULACION) que un dron espera a que su destino quede
+# libre. Pasado ese plazo se pide replanificar (el caso tipico es un bloqueo
+# mutuo entre drones).
+WP_WAIT_TIMEOUT = 10.0
+
+# Intervalo de sondeo (s de reloj REAL) para comprobar WP_WAIT_TIMEOUT contra el
+# reloj de simulacion. No decide el timeout, solo la frecuencia con la que se
+# reevalua; el notify_all() sigue despertando el wait_for al instante.
+WP_POLL = 0.5
+
+# Peticion de replanificacion. Se protege con WP_COND (el MISMO lock que
+# WP_OCUPIED) a proposito: asi el notify_all() despierta tambien a los drones
+# dormidos esperando un waypoint, que de otro modo seguirian bloqueados hasta
+# agotar WP_WAIT_TIMEOUT sin enterarse de que hay que replanificar.
+REPLAN = {'flag': False, 'reason': None}
+
+# Fase de ejecucion: 'index' es el numero de plan ejecutado (0 = plan inicial,
+# 1+ = replanificaciones) y 'offset' el tiempo de mision acumulado por las fases
+# anteriores. El reloj T0 se reinicia en cada fase, porque los t_start del plan
+# nuevo vuelven a empezar en 0; 'offset' permite seguir informando de tiempos
+# absolutos de mision en tiempos_mision.txt.
+PHASE = {'index': 0, 'offset': 0.0}
+
+# Estado que hay que arrastrar de una fase a la siguiente al replanificar:
+#   PHOTOGRAPHED -> targets ya fotografiados (no hay que repetirlos)
+#   FAILED       -> drones averiados, que salen de la mision y vuelven a base
+# La bateria NO se arrastra: cada fase parte del battery_level del escenario.
+PHOTOGRAPHED = set()
+FAILED = set()
+STATE_LOCK = threading.Lock()
+
+# Altura del corredor de vuelta a casa cuando CONFIG no la fija: por encima del
+# punto mas alto del escenario, para no invadir ninguna ruta.
+RTL_MARGIN = 1.0
 
 
 @dataclass
@@ -132,6 +132,7 @@ class ActionRecord:
     arg2: str
     t_start: float
     t_end: float
+    phase: int = 0
 
     @property
     def duration(self) -> float:
@@ -147,10 +148,12 @@ def sim_time(drone) -> float:
 
 
 def elapsed(drone) -> float:
-    """Segundos de simulacion desde el t=0 global de la mision.
+    """Segundos de simulacion desde el t=0 de la FASE actual.
 
-    Si el reloj no se ha fijado explicitamente (start_clock), se fija de forma
-    perezosa en la primera llamada.
+    Es el reloj contra el que se comparan los t_start del plan, que en cada
+    replanificacion vuelven a empezar en 0. Si el reloj no se ha fijado
+    explicitamente (start_phase), se fija de forma perezosa en la primera
+    llamada.
     """
     with T0_LOCK:
         if T0['value'] is None:
@@ -158,16 +161,40 @@ def elapsed(drone) -> float:
     return sim_time(drone) - T0['value']
 
 
-def start_clock(drones: dict) -> None:
-    """Fijar el t=0 de la mision AQUI y ahora (deterministic).
+def mission_time(drone) -> float:
+    """Segundos desde el arranque de la MISION (suma de todas las fases).
+
+    Es lo que se imprime en los logs y se guarda en tiempos_mision.txt, para que
+    los tiempos sigan siendo monotonos aunque el reloj de fase se reinicie.
+    """
+    return PHASE['offset'] + elapsed(drone)
+
+
+def reset_mission_clock() -> None:
+    """Volver al principio de la mision (fase 0, sin tiempo acumulado)."""
+    with T0_LOCK:
+        T0['value'] = None
+        PHASE['index'] = 0
+        PHASE['offset'] = 0.0
+
+
+def start_phase(drones: dict) -> None:
+    """Fijar el t=0 de la FASE aqui y ahora (determinista).
 
     Se llama justo antes de lanzar los hilos para que los t_start del plan se
     alineen con un cero bien definido, en vez de depender del primer elapsed().
     Todos los drones comparten el reloj de simulacion, asi que vale cualquiera.
+
+    Si ya habia una fase en marcha (replanificacion), su tiempo se acumula en
+    PHASE['offset'] antes de reiniciar el reloj.
     """
     any_drone = next(iter(drones.values()))
     with T0_LOCK:
-        T0['value'] = sim_time(any_drone)
+        now = sim_time(any_drone)
+        if T0['value'] is not None:
+            PHASE['offset'] += now - T0['value']
+            PHASE['index'] += 1
+        T0['value'] = now
 
 
 def wait_until(drone, t_target: float) -> None:
@@ -180,7 +207,37 @@ def record_action(drone: str, kind: str, arg1: str, arg2: str,
                    t_start: float, t_end: float) -> None:
     """Registrar (thread-safe) los tiempos reales de una accion ya ejecutada."""
     with MISSION_LOG_LOCK:
-        MISSION_LOG.append(ActionRecord(drone, kind, arg1, arg2, t_start, t_end))
+        MISSION_LOG.append(
+            ActionRecord(drone, kind, arg1, arg2, t_start, t_end, PHASE['index']))
+
+
+def request_replan(reason: str) -> None:
+    """Pedir que se interrumpa la fase actual y se replanifique.
+
+    Los hilos de los drones terminan la accion que estuvieran ejecutando y salen;
+    los que estuvieran dormidos esperando un waypoint despiertan aqui mismo por
+    el notify_all(), sin agotar WP_WAIT_TIMEOUT.
+    """
+    with WP_COND:
+        if REPLAN['flag']:
+            return                      # ya habia una peticion en curso
+        REPLAN['flag'] = True
+        REPLAN['reason'] = reason
+        WP_COND.notify_all()
+    print(f'*** REPLANIFICACION solicitada: {reason} ***')
+
+
+def replan_requested() -> bool:
+    """True si hay una replanificacion pendiente."""
+    with WP_COND:
+        return REPLAN['flag']
+
+
+def clear_replan() -> None:
+    """Limpiar la peticion de replanificacion (al arrancar una fase nueva)."""
+    with WP_COND:
+        REPLAN['flag'] = False
+        REPLAN['reason'] = None
 
 
 def write_mission_times(path: str = "./TFG/tiempos_mision.txt") -> None:
@@ -203,15 +260,20 @@ def write_mission_times(path: str = "./TFG/tiempos_mision.txt") -> None:
 
     lines = ['TIEMPOS DE MISION', '=================', '']
 
+    # Solo se muestra la columna de fase si de verdad hubo replanificacion.
+    con_fases = any(r.phase for r in records)
+
     for drone in sorted(by_drone):
         actions = by_drone[drone]
         lines.append(f'Dron: {drone}')
         lines.append('-' * (6 + len(drone)))
-        lines.append(f"{'t_inicio':>10}  {'accion':<12}{'arg1':<16}{'arg2':<16}"
+        cab_fase = f"{'fase':>5}" if con_fases else ''
+        lines.append(f"{cab_fase}{'t_inicio':>10}  {'accion':<12}{'arg1':<16}{'arg2':<16}"
                       f"{'t_fin':>10}{'duracion':>12}")
         for r in actions:
+            fase = f'{r.phase:5d}' if con_fases else ''
             lines.append(
-                f'{r.t_start:10.3f}  {r.kind:<12}{r.arg1:<16}{r.arg2:<16}'
+                f'{fase}{r.t_start:10.3f}  {r.kind:<12}{r.arg1:<16}{r.arg2:<16}'
                 f'{r.t_end:10.3f}{r.duration:12.3f}')
         lines.append('')
 
@@ -223,6 +285,9 @@ def write_mission_times(path: str = "./TFG/tiempos_mision.txt") -> None:
         total_mision = max(total_mision, t_total_dron)
         lines.append(f'  {drone}: tiempo total = {t_total_dron:.3f} s')
     lines.append('')
+    if con_fases:
+        lines.append(f'Fases ejecutadas: {max(r.phase for r in records) + 1} '
+                      f'(0 = plan inicial, 1+ = replanificaciones)')
     lines.append(f'Tiempo total de la mision (makespan): {total_mision:.3f} s')
 
     os.makedirs(os.path.dirname(path) or '.', exist_ok=True)
@@ -248,30 +313,116 @@ def init_wp_ocupied(scenario: dict, plans: dict) -> None:
                 WP_OCUPIED[start] = ns
 
 
-def reserve_wp(drone: DroneInterface, origin: str, dest: str) -> None:
+def reserve_wp(drone: DroneInterface, origin: str, dest: str) -> bool:
     """Reservar 'dest' para este dron y liberar 'origin' (bloqueante).
 
     Si 'dest' esta ocupado por otro dron, el hilo se queda esperando hasta que
     lo libere. La reserva del destino y la liberacion del origen ocurren en la
     MISMA seccion critica, para que nadie pueda colarse entre las dos.
+
+    Devuelve False si hay que abortar (replanificacion pedida, o timeout que la
+    provoca). En ese caso NO se toca WP_OCUPIED: el dron sigue registrado en su
+    origen, que es donde realmente esta, y ese estado es el que usara el
+    escenario replanificado.
     """
     ns = drone.drone_id
     with WP_COND:
+        if REPLAN['flag']:
+            return False
+
         ocupante = WP_OCUPIED.get(dest)
         if ocupante is not None and ocupante != ns:
-            print(f'[{elapsed(drone):7.3f}][{ns}] espera: {dest} ocupado por {ocupante}')
-            libre = WP_COND.wait_for(
-                lambda: WP_OCUPIED.get(dest) in (None, ns), timeout=WP_WAIT_TIMEOUT)
+            print(f'[{mission_time(drone):7.3f}][{ns}] espera: {dest} ocupado por {ocupante}')
+
+            # WP_WAIT_TIMEOUT se mide en tiempo de SIMULACION: un unico
+            # wait_for con ese timeout usaria el reloj de pared, que depende
+            # del real time factor de Gazebo y rompe la reproducibilidad. Se
+            # sondea cada WP_POLL segundos reales y se compara contra el reloj
+            # de mision; el notify_all() sigue despertando al instante en el
+            # caso normal, el sondeo solo decide cuando darse por vencido.
+            limite = mission_time(drone) + WP_WAIT_TIMEOUT
+            libre = False
+            while not libre and not REPLAN['flag'] and mission_time(drone) < limite:
+                libre = WP_COND.wait_for(
+                    lambda: REPLAN['flag'] or WP_OCUPIED.get(dest) in (None, ns),
+                    timeout=WP_POLL)
+
+            if REPLAN['flag']:
+                print(f'[{mission_time(drone):7.3f}][{ns}] espera cancelada por replanificacion')
+                return False
+
             if libre:
-                print(f'[{elapsed(drone):7.3f}][{ns}] {dest} libre, continua')
+                print(f'[{mission_time(drone):7.3f}][{ns}] {dest} libre, continua')
             else:
-                print(f'[{elapsed(drone):7.3f}][{ns}] AVISO: timeout de '
-                      f'{WP_WAIT_TIMEOUT:.0f} s esperando {dest}, continua igualmente')
+                # Nadie ha soltado el waypoint en todo el plazo: lo normal es un
+                # bloqueo mutuo, que solo se rompe replanificando.
+                motivo = (f'timeout de {WP_WAIT_TIMEOUT:.0f} s de {ns} esperando '
+                          f'{dest} (ocupado por {WP_OCUPIED.get(dest)})')
+                REPLAN['flag'] = True
+                REPLAN['reason'] = motivo
+                WP_COND.notify_all()
+                print(f'*** REPLANIFICACION solicitada: {motivo} ***')
+                return False
 
         WP_OCUPIED[dest] = ns
         if origin and WP_OCUPIED.get(origin) == ns:
             del WP_OCUPIED[origin]
         WP_COND.notify_all()
+        return True
+
+
+def release_wp(ns: str, wp: str) -> None:
+    """Liberar 'wp' si lo ocupa 'ns' (el dron sale del grafo de waypoints)."""
+    with WP_COND:
+        if WP_OCUPIED.get(wp) == ns:
+            del WP_OCUPIED[wp]
+            WP_COND.notify_all()
+
+
+def drone_waypoints() -> dict:
+    """Copia de {dron: waypoint} para reconstruir el escenario al replanificar."""
+    with WP_OCUPIED_LOCK:
+        return {ns: wp for wp, ns in WP_OCUPIED.items()}
+
+
+# -----------------------------------------------------------------------------
+#  ESTADO ARRASTRADO ENTRE FASES (targets fotografiados / drones averiados)
+# -----------------------------------------------------------------------------
+def init_photographed(scenario: dict) -> None:
+    """Cargar los targets ya fotografiados que declare el escenario."""
+    with STATE_LOCK:
+        PHOTOGRAPHED.clear()
+        PHOTOGRAPHED.update(scenario.get('PHOTOGRAPHED') or [])
+
+
+def mark_photographed(target: str) -> None:
+    """Anotar que 'target' ya esta fotografiado (no se repetira al replanificar)."""
+    with STATE_LOCK:
+        PHOTOGRAPHED.add(target)
+
+
+def photographed_targets() -> list:
+    """Lista ordenada de targets fotografiados hasta ahora."""
+    with STATE_LOCK:
+        return sorted(PHOTOGRAPHED)
+
+
+def mark_failed(ns: str) -> None:
+    """Marcar un dron como averiado: sale de la mision y vuelve a su base."""
+    with STATE_LOCK:
+        FAILED.add(ns)
+
+
+def failed_drones() -> set:
+    """Copia del conjunto de drones averiados."""
+    with STATE_LOCK:
+        return set(FAILED)
+
+
+def clear_failed() -> None:
+    """Olvidar las averias (al arrancar una mision nueva)."""
+    with STATE_LOCK:
+        FAILED.clear()
 
 
 def yaw_to_face(origin: list, target: list) -> float:
@@ -404,7 +555,7 @@ def show_all_photos(photos_dir: str = "./TFG/photos", pattern: str = "photo_*.pn
 def do_takeoff(drone: DroneInterface, ground: str, air: str, coords: dict) -> None:
     """Despegar de la base de suelo a la aerea (altura = z del punto air)."""
     height = coords[air][2]
-    t = elapsed(drone)
+    t = mission_time(drone)
     print(f'[{t:7.3f}][{drone.drone_id}] takeoff -> {air} (h={height} m)')
     drone.arm()
     drone.offboard()
@@ -418,7 +569,7 @@ def do_fly(drone: DroneInterface, origin: str, dest: str, speed: float,
     orientado hacia ese target; si no, sigue el path encarado al destino.
     """
     p_dest = list(coords[dest])
-    t = elapsed(drone)
+    t = mission_time(drone)
 
     if dest in viewpoint_target:
         face_point = list(coords[viewpoint_target[dest]])   # mirar al target
@@ -436,7 +587,7 @@ def do_fly(drone: DroneInterface, origin: str, dest: str, speed: float,
 
 def do_land(drone: DroneInterface, air: str, ground: str) -> None:
     """Aterrizar de la base aerea a la de suelo (bloqueante)."""
-    t = elapsed(drone)
+    t = mission_time(drone)
     print(f'[{t:7.3f}][{drone.drone_id}] land -> {ground}')
     drone.land(speed=LAND_SPEED)
 
@@ -448,12 +599,12 @@ def do_recharge(drone: DroneInterface, waypoint: str, duration: float) -> None:
     a consumir el tiempo que el planificador le asigno (duration segundos).
     """
     t_start = elapsed(drone)
-    print(f'[{t_start:7.3f}][{drone.drone_id}] recharge en {waypoint} ({duration:.3f} s)')
+    print(f'[{mission_time(drone):7.3f}][{drone.drone_id}] recharge en {waypoint} ({duration:.3f} s)')
 
     while elapsed(drone) - t_start < duration:
         sleep(0.01)
 
-    print(f'[{elapsed(drone):7.3f}][{drone.drone_id}] recharge completada')
+    print(f'[{mission_time(drone):7.3f}][{drone.drone_id}] recharge completada')
 
 
 def do_take_photo(drone: DroneInterface, viewpoint: str, target: str, coords: dict) -> None:
@@ -461,12 +612,100 @@ def do_take_photo(drone: DroneInterface, viewpoint: str, target: str, coords: di
     p_vp = list(coords[viewpoint])
     p_tgt = list(coords[target])
     t_start = elapsed(drone)
-    print(f'[{t_start:7.3f}][{drone.drone_id}] take_photo {viewpoint} -> {target}')
+    print(f'[{mission_time(drone):7.3f}][{drone.drone_id}] take_photo {viewpoint} -> {target}')
     gimbal_orientation(drone, p_vp, p_tgt)
     take_photo(drone, f'photo_{drone.drone_id}_{target}.png')
 
     while elapsed(drone) - t_start < 5.0:
         sleep(0.01)
+
+
+# =============================================================================
+#  RETORNO A BASE DE UN DRON AVERIADO
+#
+#  No usa el grafo de waypoints: el dron sube a un corredor por encima de todas
+#  las rutas, cruza hasta la vertical de su base y aterriza. Asi no compite por
+#  ningun waypoint ni interfiere con los drones que siguen trabajando, y puede
+#  volar mientras el planificador calcula el plan nuevo.
+# =============================================================================
+def rtl_altitude(scenario: dict) -> float:
+    """Altura del corredor de vuelta a casa.
+
+    Si CONFIG no la fija (rtl_altitude), se toma el punto mas alto del escenario
+    mas RTL_MARGIN, para pasar por encima de cualquier ruta y de los obstaculos.
+    """
+    config = scenario.get('CONFIG', {})
+    if config.get('rtl_altitude') is not None:
+        return float(config['rtl_altitude'])
+    max_z = max(p[2] for p in scenario['COORDS'].values())
+    return max_z + float(config.get('rtl_margin', RTL_MARGIN))
+
+
+def return_to_base(drone: DroneInterface, base_xy: list, altitude: float,
+                   speed: float = DEFAULT_SPEED) -> None:
+    """Llevar un dron averiado a su base: subir, cruzar y aterrizar (bloqueante).
+
+    Solo se necesitan las coordenadas (x, y) de la base: el retorno es puramente
+    geometrico, asi que la base puede haber desaparecido ya del escenario nuevo.
+    """
+    ns = drone.drone_id
+
+    # Sale del grafo de waypoints: libera el suyo para que otros puedan usarlo.
+    wp_actual = drone_waypoints().get(ns)
+    if wp_actual:
+        release_wp(ns, wp_actual)
+        print(f'[{mission_time(drone):7.3f}][{ns}] RTL: libera {wp_actual}')
+
+    pos = drone.position
+    print(f'[{mission_time(drone):7.3f}][{ns}] RTL: sube a {altitude:.1f} m')
+    # KEEP_YAW en los tramos verticales: sin avance horizontal, el modo path
+    # facing no tiene direccion que encarar.
+    drone.go_to.go_to_point([pos[0], pos[1], altitude], speed=speed)
+
+    print(f'[{mission_time(drone):7.3f}][{ns}] RTL: crucero a '
+          f'({base_xy[0]:.1f}, {base_xy[1]:.1f})')
+    drone.go_to.go_to_point_path_facing([base_xy[0], base_xy[1], altitude], speed=speed)
+
+    print(f'[{mission_time(drone):7.3f}][{ns}] RTL: aterrizando')
+    drone.land(speed=LAND_SPEED)
+    drone.manual()
+    print(f'[{mission_time(drone):7.3f}][{ns}] RTL: en base, fuera de la mision')
+
+
+def start_failure_watcher(drones: dict, scenario: dict) -> threading.Thread:
+    """Lanzar el vigilante de averias programadas en el escenario.
+
+    El escenario puede declararlas asi:
+
+        FAILURES:
+          - {drone: drone3, at_time: 20.0}
+
+    Al llegar ese instante de mision se marca el dron como averiado y se pide
+    replanificar. Tener el fallo preprogramado hace el experimento reproducible.
+    Devuelve None si el escenario no declara ninguna averia.
+    """
+    failures = [f for f in (scenario.get('FAILURES') or [])
+                if f.get('drone') in drones and f.get('drone') not in failed_drones()]
+    if not failures:
+        return None
+
+    failures.sort(key=lambda f: float(f['at_time']))
+    reloj = next(iter(drones.values()))
+
+    def watcher():
+        for f in failures:
+            ns, t_fallo = f['drone'], float(f['at_time'])
+            while mission_time(reloj) < t_fallo:
+                if replan_requested():
+                    return          # otra causa se adelanto; se reintenta en la fase siguiente
+                sleep(0.05)
+            mark_failed(ns)
+            request_replan(f'averia simulada en {ns} (t={t_fallo:.1f} s)')
+            return                  # la fase termina aqui; el resto se vera en la siguiente
+
+    th = threading.Thread(target=watcher, name='failure_watcher', daemon=True)
+    th.start()
+    return th
 
 
 # =============================================================================
@@ -482,6 +721,13 @@ def drone_mission(drone: DroneInterface, plan: list, scenario: dict) -> None:
     speed = scenario['DRONES'].get(ns, {}).get('speed', DEFAULT_SPEED)
 
     for action in plan:
+        # Gate de replanificacion: se comprueba en FRONTERA DE ACCION, nunca a
+        # mitad de una. El dron queda en un waypoint bien definido, que es lo que
+        # necesita el escenario replanificado.
+        if replan_requested():
+            print(f'[{mission_time(drone):7.3f}][{ns}] fase interrumpida, a la espera de plan nuevo')
+            return
+
         # Gate de agenda: no empezar la accion antes de su instante programado.
         # Un unico mecanismo cubre los dos casos:
         #   - hueco de inactividad del planner -> t_start futuro, se espera.
@@ -495,15 +741,19 @@ def drone_mission(drone: DroneInterface, plan: list, scenario: dict) -> None:
         # libre. Reserva el destino y libera el origen; si esta ocupado, espera.
         # (take_photo y recharge no mueven al dron, no tocan WP_OCUPIED.)
         if kind in ('takeoff', 'fly', 'land'):
-            reserve_wp(drone, action.arg1, action.arg2)
+            if not reserve_wp(drone, action.arg1, action.arg2):
+                print(f'[{mission_time(drone):7.3f}][{ns}] fase interrumpida en {action.arg1}, '
+                      f'a la espera de plan nuevo')
+                return
 
-        t_real_start = elapsed(drone)
+        t_real_start = mission_time(drone)
         if kind == "takeoff":
             do_takeoff(drone, action.arg1, action.arg2, coords)
         elif kind == "fly":
             do_fly(drone, action.arg1, action.arg2, speed, coords, viewpoint_target)
         elif kind == "take_photo":
             do_take_photo(drone, action.arg1, action.arg2, coords)
+            mark_photographed(action.arg2)   # no habra que repetirlo si se replanifica
         elif kind == "land":
             do_land(drone, action.arg1, action.arg2)
         elif kind == "recharge":
@@ -512,11 +762,13 @@ def drone_mission(drone: DroneInterface, plan: list, scenario: dict) -> None:
             print(f'[{ns}] accion desconocida: {kind}')
             continue
 
-        record_action(ns, kind, action.arg1, action.arg2, t_real_start, elapsed(drone))
+        record_action(ns, kind, action.arg1, action.arg2, t_real_start, mission_time(drone))
 
+    # Solo se sale de offboard cuando el plan se ha completado de verdad. Si la
+    # fase se interrumpe (return de arriba) el dron sigue en offboard, quieto y
+    # listo para recibir el plan siguiente.
     drone.manual()
-    t = elapsed(drone)
-    print(f'[{t:7.3f}][{ns}] mision completada')
+    print(f'[{mission_time(drone):7.3f}][{ns}] mision completada')
 
 
 # =============================================================================
@@ -554,23 +806,27 @@ def arm_offboard(drones: dict) -> None:
         drone.offboard()
 
 
-def execute_mission(drones: dict, scenario: dict, plans: dict) -> None:
+def execute_phase(drones: dict, scenario: dict, plans: dict) -> str:
     """
-    Lanzar un hilo por dron y ejecutar su plan. Espera a que todos terminen.
-    'drones' es el dict devuelto por create_drones(); 'scenario' aporta los datos
-    del escenario y 'plans' el plan de acciones de cada dron.
-    """
-    clear_photos()
+    Ejecutar UNA fase (un plan) y esperar a que todos los hilos terminen.
 
-    with MISSION_LOG_LOCK:
-        MISSION_LOG.clear()
+    Devuelve None si la fase se completo entera, o el motivo (str) por el que
+    hay que replanificar. No limpia fotos ni el registro de tiempos: es la
+    primitiva que usa el bucle de replanificacion, que puede llamarla varias
+    veces sobre los mismos drones.
+    """
+    clear_replan()
 
     # Cada dron ocupa su punto de partida antes de que arranque ningun hilo.
     init_wp_ocupied(scenario, plans)
+    init_photographed(scenario)
 
-    # Fijar el t=0 de la mision aqui, para que los t_start del plan se alineen
-    # con un cero determinista antes de que ningun hilo empiece a contar.
-    start_clock(drones)
+    # Fijar el t=0 de la FASE aqui, para que los t_start del plan (que vuelven a
+    # empezar en 0 en cada replanificacion) se alineen con un cero determinista.
+    start_phase(drones)
+
+    # Averias programadas (FAILURES en el escenario), si las hay.
+    start_failure_watcher(drones, scenario)
 
     threads = []
     for ns, plan in plans.items():
@@ -582,8 +838,32 @@ def execute_mission(drones: dict, scenario: dict, plans: dict) -> None:
     for t in threads:
         t.join()
 
+    with WP_COND:
+        return REPLAN['reason'] if REPLAN['flag'] else None
+
+
+def execute_mission(drones: dict, scenario: dict, plans: dict) -> str:
+    """
+    Ejecutar la mision de una sola fase (sin replanificar) y guardar los tiempos.
+
+    'drones' es el dict devuelto por create_drones(); 'scenario' aporta los datos
+    del escenario y 'plans' el plan de acciones de cada dron. Devuelve el motivo
+    de replanificacion, o None si la mision se completo.
+    """
+    clear_photos()
+
+    with MISSION_LOG_LOCK:
+        MISSION_LOG.clear()
+    reset_mission_clock()
+
+    motivo = execute_phase(drones, scenario, plans)
+
     write_mission_times()
-    print('Todas las misiones han terminado')
+    if motivo:
+        print(f'Fase interrumpida: {motivo}')
+    else:
+        print('Todas las misiones han terminado')
+    return motivo
 
 
 def shutdown_drones(drones: dict) -> None:

@@ -3,14 +3,17 @@ import shutil
 import subprocess
 
 
-def run_malama(config, timeout_arg: str = "100") -> bool:
+def run_malama(config, timeout_arg: str = "100", multiagente: bool = True) -> bool:
     """
     Ejecutar MA-LAMA con el dominio y el problema de CONFIG, e imprimir el plan.
 
     Equivale a lanzar en terminal (desde ~/MA-LAMA):
-        ./launchMALama.sh domains/<dominio>.pddl domains/<problema>.pddl 10 y y
+        ./launchMALama.sh domains/<dominio>.pddl domains/<problema>.pddl 100 y y h
 
-    :param timeout_arg: el argumento numerico del planificador (p.ej. "10")
+    :param timeout_arg: el argumento numerico del planificador (p.ej. "100")
+    :param multiagente: True fuerza el modo multiagente ('y'). Con un SOLO dron
+        hay que pasar False ('n'): forzar multiagente con un unico agente deja
+        al planificador en un bucle infinito.
     :return: True si el planificador termino bien y existe el plan, False si no
     """
     malama_dir = os.path.expanduser("~/MA-LAMA")
@@ -18,7 +21,8 @@ def run_malama(config, timeout_arg: str = "100") -> bool:
     domain_file = os.path.join("domains", f'{config["domain_name"]}.pddl')
     problem_file = os.path.join("domains", config["output_file"])
 
-    cmd = ["bash", "./launchMALama.sh", domain_file, problem_file, timeout_arg, "y", "y", "h"]
+    modo = "y" if multiagente else "n"
+    cmd = ["bash", "./launchMALama.sh", domain_file, problem_file, timeout_arg, modo, "y", "h"]
 
     print(f'Ejecutando planificador: {" ".join(cmd)}')
     resultado = subprocess.run(

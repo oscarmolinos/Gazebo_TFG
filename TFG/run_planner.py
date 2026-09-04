@@ -1,20 +1,33 @@
+#!/usr/bin/env python3
+"""
+run_planner.py — Lanza los planificadores externos (MA-LAMA y OPTIC) como
+procesos independientes sobre el PDDL ya generado en ~/MA-LAMA/domains/.
+
+run_malama() invoca ./launchMALama.sh dentro de ~/MA-LAMA y comprueba que
+final_plan.txt se haya generado; run_optic() copia el PDDL a ~/OPTIC/domains/,
+ejecuta optic-clp y guarda toda la salida en ~/OPTIC/optic_plan.txt. Ambas
+funciones devuelven True/False según si el planificador encontró solución;
+el plan resultante lo interpreta después plan_parser.py.
+"""
+
+
 import os
 import shutil
 import subprocess
 
 
-def run_malama(config, timeout_arg: str = "100", multiagente: bool = True) -> bool:
+def run_malama(config, timeout_arg: str = "20", multiagente: bool = True) -> bool:
     """
     Ejecutar MA-LAMA con el dominio y el problema de CONFIG, e imprimir el plan.
 
     Equivale a lanzar en terminal (desde ~/MA-LAMA):
-        ./launchMALama.sh domains/<dominio>.pddl domains/<problema>.pddl 100 y y h
+        ./launchMALama.sh domains/<dominio>.pddl domains/<problema>.pddl 20 y y h
 
-    :param timeout_arg: el argumento numerico del planificador (p.ej. "100")
+    :param timeout_arg: el argumento numérico del planificador
     :param multiagente: True fuerza el modo multiagente ('y'). Con un SOLO dron
-        hay que pasar False ('n'): forzar multiagente con un unico agente deja
+        hay que pasar False ('n'): forzar multiagente con un único agente deja
         al planificador en un bucle infinito.
-    :return: True si el planificador termino bien y existe el plan, False si no
+    :return: True si el planificador terminó bien y existe el plan, False si no
     """
     malama_dir = os.path.expanduser("~/MA-LAMA")
 
@@ -32,13 +45,13 @@ def run_malama(config, timeout_arg: str = "100", multiagente: bool = True) -> bo
         text=True)
 
     if resultado.returncode != 0:
-        print('El planificador devolvio error:')
+        print('El planificador devolvió error:')
         print(resultado.stderr)
         return False
 
     plan_path = os.path.join(malama_dir, "final_plan.txt")
     if not os.path.exists(plan_path):
-        print(f'No se encontro el plan en {plan_path}')
+        print(f'No se encontró el plan en {plan_path}')
         return False
 
     print('\n===== PLAN GENERADO (final_plan.txt) =====')
@@ -58,7 +71,7 @@ def run_optic(config) -> bool:
 
     La salida completa se guarda en ~/OPTIC/optic_plan.txt.
 
-    :return: True si OPTIC encontro solucion, False si no
+    :return: True si OPTIC encontró solución, False si no
     """
     optic_dir = os.path.expanduser("~/OPTIC")
     malama_dir = os.path.expanduser("~/MA-LAMA")
@@ -92,14 +105,14 @@ def run_optic(config) -> bool:
         f.write(output)
 
     if "Solution Found" not in output:
-        print("OPTIC no encontro solucion.")
+        print("OPTIC no encontró solución.")
         return False
 
     print(f'Plan guardado en {plan_path}\n')
     return True
 
 
-# Alias para compatibilidad con código existente
+# Alias para compatibilidad con código existente.
 run_planner = run_malama
 
 

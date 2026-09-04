@@ -50,23 +50,23 @@
     <!-- OBSTACULOS                                                    -->
     <!-- ============================================================= -->
 
-    <!-- Obstaculo 1: cubo 3x3x3, cara inferior centrada en (-5, 0) -->
-    <!-- Centro del modelo en z = 1.5 (mitad de la altura) -->
+    <!-- Obstaculo 1: cubo 3x3x2, cara inferior centrada en (-5, 0) -->
+    <!-- Centro del modelo en z = 1.0 (mitad de la altura) -->
     <model name="obstaculo_1">
       <static>true</static>
-      <pose>-5 0 1.5 0 0 0</pose>
+      <pose>-5 0 1.0 0 0 0</pose>
       <link name="obstaculo_1_link">
         <collision name="obstaculo_1_col">
           <geometry>
             <box>
-              <size>3 3 3</size>
+              <size>3 3 2</size>
             </box>
           </geometry>
         </collision>
         <visual name="obstaculo_1_vis">
           <geometry>
             <box>
-              <size>3 3 3</size>
+              <size>3 3 2</size>
             </box>
           </geometry>
           <material>
@@ -78,23 +78,23 @@
       </link>
     </model>
 
-    <!-- Obstaculo 2: cubo 3x3x3, cara inferior centrada en (0, -5) -->
-    <!-- Centro del modelo en z = 1.5 -->
+    <!-- Obstaculo 2: cubo 3x3x2, cara inferior centrada en (0, -5) -->
+    <!-- Centro del modelo en z = 1.0 -->
     <model name="obstaculo_2">
       <static>true</static>
-      <pose>0 -5 1.5 0 0 0</pose>
+      <pose>0 -5 1.0 0 0 0</pose>
       <link name="obstaculo_2_link">
         <collision name="obstaculo_2_col">
           <geometry>
             <box>
-              <size>3 3 3</size>
+              <size>3 3 2</size>
             </box>
           </geometry>
         </collision>
         <visual name="obstaculo_2_vis">
           <geometry>
             <box>
-              <size>3 3 3</size>
+              <size>3 3 2</size>
             </box>
           </geometry>
           <material>
@@ -106,23 +106,23 @@
       </link>
     </model>
 
-    <!-- Obstaculo 3: cubo 3x3x6, cara inferior centrada en (2, 5) -->
-    <!-- Centro del modelo en z = 3.0 (mitad de la altura = 6/2) -->
+    <!-- Obstaculo 3: cubo 3x3x3, cara inferior centrada en (2, 5) -->
+    <!-- Centro del modelo en z = 1.5 (mitad de la altura = 3/2) -->
     <model name="obstaculo_3">
       <static>true</static>
-      <pose>2 5 3 0 0 0</pose>
+      <pose>2 5 1.5 0 0 0</pose>
       <link name="obstaculo_3_link">
         <collision name="obstaculo_3_col">
           <geometry>
             <box>
-              <size>3 3 6</size>
+              <size>3 3 3</size>
             </box>
           </geometry>
         </collision>
         <visual name="obstaculo_3_vis">
           <geometry>
             <box>
-              <size>3 3 6</size>
+              <size>3 3 3</size>
             </box>
           </geometry>
           <material>
@@ -140,12 +140,12 @@
     <!-- (insertados 0.1 m hacia dentro: cara externa enrasada al borde)-->
     <!-- ============================================================= -->
 
-    <!-- Obstaculo 1 (top z=3): 2 cubos -->
+    <!-- Obstaculo 1 (top z=2): 2 cubos -->
 
     <!-- ROJO: esquina (+x, +y) del obstaculo 1 -->
     <model name="cubo_rojo">
       <static>true</static>
-      <pose>-3.6 1.4 3.1 0 0 0</pose>
+      <pose>-3.6 1.4 2.1 0 0 0</pose>
       <link name="cubo_rojo_link">
         <collision name="cubo_rojo_col">
           <geometry>
@@ -172,7 +172,7 @@
     <!-- AMARILLO: esquina (-x, -y) del obstaculo 1 -->
     <model name="cubo_amarillo">
       <static>true</static>
-      <pose>-6.4 -1.4 3.1 0 0 0</pose>
+      <pose>-6.4 -1.4 2.1 0 0 0</pose>
       <link name="cubo_amarillo_link">
         <collision name="cubo_amarillo_col">
           <geometry>
@@ -196,12 +196,12 @@
       </link>
     </model>
 
-    <!-- Obstaculo 2 (top z=3): 2 cubos -->
+    <!-- Obstaculo 2 (top z=2): 2 cubos -->
 
     <!-- AZUL: esquina (+x, +y hacia el centro) del obstaculo 2 -->
     <model name="cubo_azul">
       <static>true</static>
-      <pose>1.4 -3.6 3.1 0 0 0</pose>
+      <pose>1.4 -3.6 2.1 0 0 0</pose>
       <link name="cubo_azul_link">
         <collision name="cubo_azul_col">
           <geometry>
@@ -228,7 +228,7 @@
     <!-- VERDE: esquina (-x, -y) del obstaculo 2 -->
     <model name="cubo_verde">
       <static>true</static>
-      <pose>-1.4 -6.4 3.1 0 0 0</pose>
+      <pose>-1.4 -6.4 2.1 0 0 0</pose>
       <link name="cubo_verde_link">
         <collision name="cubo_verde_col">
           <geometry>
@@ -252,12 +252,12 @@
       </link>
     </model>
 
-    <!-- Obstaculo 3 (top z=6): 2 cubos -->
+    <!-- Obstaculo 3 (top z=3): 2 cubos -->
 
     <!-- NARANJA: esquina (+x, +y hacia el centro) del obstaculo 3 -->
     <model name="cubo_naranja">
       <static>true</static>
-      <pose>3.4 6.4 6.1 0 0 0</pose>
+      <pose>3.4 6.4 3.1 0 0 0</pose>
       <link name="cubo_naranja_link">
         <collision name="cubo_naranja_col">
           <geometry>
@@ -284,7 +284,7 @@
     <!-- MORADO: esquina (-x, -y) del obstaculo 3 -->
     <model name="cubo_morado">
       <static>true</static>
-      <pose>0.6 3.6 6.1 0 0 0</pose>
+      <pose>0.6 3.6 3.1 0 0 0</pose>
       <link name="cubo_morado_link">
         <collision name="cubo_morado_col">
           <geometry>

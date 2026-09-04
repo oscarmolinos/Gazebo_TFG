@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 
 """
-Parser de los planes de MA-LAMA al diccionario PLANS que consume el ejecutor.
+Parser de los planes de MA-LAMA y OPTIC al diccionario PLANS que consume el ejecutor.
 
 MA-LAMA genera un fichero por agente (plan_agent0.txt, plan_agent1.txt, ...).
-Cada linea tiene el formato:
+Cada línea tiene el formato:
 
-    <accion> <arg1> <arg2> <drone> [t_inicio, t_inicio, duracion]
+    <acción> <arg1> <arg2> <drone> [t_inicio, t_inicio, duración]
 
 Ejemplos:
     recharge base1_ground drone1 [0.010, 0.010, 10.000]
@@ -15,18 +15,29 @@ Ejemplos:
     take_photo vp1 drone1 tgt1 [5.470, 5.470, 5.000]
     land base1_air base1_ground drone1 [28.530, 28.530, 4.000]
 
-Particularidades de formato:
-  - 'take_photo': el dron va EN MEDIO (posicion 3) y el target al final ->
+OPTIC vuelca todas las acciones ordenadas por tiempo en un único fichero
+(optic_plan.txt), con el formato:
+
+    t_inicio: (acción arg1 arg2 drone) [duración]
+
+Ejemplo:
+    2.010: (fly base1_air vp1 drone1) [3.460]
+
+Particularidades de formato (comunes a ambos planificadores):
+  - 'take_photo': el dron va en medio (posición 2) y el target al final ->
     'take_photo <viewpoint> <drone> <target>'.
-  - 'recharge': solo tiene DOS argumentos -> 'recharge <waypoint> <drone>';
+  - 'recharge': solo tiene dos argumentos -> 'recharge <waypoint> <drone>';
     se guarda como PlannedAction('recharge', waypoint, '', ...).
-  - el resto: el dron va al final -> '<accion> <arg1> <arg2> <drone>'.
+  - el resto: el dron va al final -> '<acción> <arg1> <arg2> <drone>'.
+  - en OPTIC, cualquier acción que no esté en _KNOWN_ACTIONS (takeoff, fly,
+    take_photo, land, recharge) se ignora.
 
-Los TIEMPOS entre corchetes se CONSERVAN: cada accion lleva su instante de inicio
-programado (t_start) y su duracion, para que el ejecutor pueda respetar la agenda
-del planificador (esperar a la hora de cada accion, huecos de inactividad, etc.).
+Los tiempos se conservan: cada acción lleva su instante de inicio programado
+(t_start) y su duración, para que el ejecutor pueda respetar la agenda del
+planificador (esperar a la hora de cada acción, huecos de inactividad, etc.).
 
-Salida: dict { 'drone1': [ PlannedAction, ... ], 'drone2': [ ... ] }
+Salida de load_malama_plans / load_optic_plan:
+    dict { 'drone1': [ PlannedAction, ... ], 'drone2': [ ... ] }
   - takeoff/fly/land -> PlannedAction(kind, arg1, arg2, t_start, duration)
   - take_photo       -> PlannedAction('take_photo', viewpoint, target, t_start, duration)
   - recharge         -> PlannedAction('recharge', waypoint, '', t_start, duration)
@@ -41,7 +52,7 @@ from typing import Dict, List, Tuple
 
 @dataclass
 class PlannedAction:
-    """Una accion del plan con su agenda (tiempos en segundos desde el t=0 de la mision)."""
+    """Una acción del plan con su agenda (tiempos en segundos desde el t=0 de la mision)."""
     kind: str
     arg1: str
     arg2: str
@@ -55,10 +66,10 @@ Action = PlannedAction
 
 def parse_malama_line(line: str) -> Tuple[str, Action]:
     """
-    Convertir UNA linea de plan de MA-LAMA en (drone, accion).
+    Convertir UNA linea de plan de MA-LAMA en (drone, acción).
 
     :param line: linea cruda del fichero de plan
-    :return: (nombre_dron, tupla_accion) o (None, None) si la linea esta vacia
+    :return: (nombre_dron, tupla_accion) o (None, None) si la linea esta vacía
     """
     line = line.strip()
     if not line:
@@ -82,7 +93,8 @@ def parse_malama_line(line: str) -> Tuple[str, Action]:
         viewpoint = tokens[1]
         drone = tokens[2]
         target = tokens[3]
-        action = PlannedAction('take_photo', viewpoint, target, t_start, duration)
+        action = PlannedAction('take_photo', viewpoint,
+                               target, t_start, duration)
     elif kind == 'recharge':
         # formato: recharge <waypoint> <drone>  (sin segundo argumento)
         waypoint = tokens[1]
@@ -117,7 +129,7 @@ def parse_malama_file(path: str) -> Dict[str, List[Action]]:
 
 def load_malama_plans(plan_dir: str, pattern: str = 'plan_agent*.txt') -> Dict[str, List[Action]]:
     """
-    Cargar TODOS los ficheros de plan de MA-LAMA de un directorio y fundirlos en un unico
+    Cargar todos los ficheros de plan de MA-LAMA de un directorio y fundirlos en un único
     diccionario PLANS (un fichero puede contener uno o varios drones).
 
     :param plan_dir: directorio donde estan los plan_agentN.txt
@@ -138,8 +150,8 @@ def load_malama_plans(plan_dir: str, pattern: str = 'plan_agent*.txt') -> Dict[s
     return plans
 
 
-
-_OPTIC_LINE_RE = re.compile(r'^(\d+\.\d+):\s*\((\S+)\s+([^)]+)\)\s*\[([\d.]+)\]')
+_OPTIC_LINE_RE = re.compile(
+    r'^(\d+\.\d+):\s*\((\S+)\s+([^)]+)\)\s*\[([\d.]+)\]')
 _KNOWN_ACTIONS = {'takeoff', 'fly', 'take_photo', 'land', 'recharge'}
 
 
@@ -166,7 +178,8 @@ def parse_optic_line(line: str) -> Tuple[str, Action]:
     if kind == 'take_photo':
         # take_photo vp drone target
         viewpoint, drone, target = args[0], args[1], args[2]
-        action = PlannedAction('take_photo', viewpoint, target, t_start, duration)
+        action = PlannedAction('take_photo', viewpoint,
+                               target, t_start, duration)
     elif kind == 'recharge':
         # recharge waypoint drone  (sin segundo argumento)
         waypoint, drone = args[0], args[1]
@@ -184,7 +197,7 @@ def load_optic_plan(plan_file: str) -> Dict[str, List[Action]]:
     Parsear el fichero de salida de OPTIC (optic_plan.txt) en el mismo formato
     {drone: [acciones]} que usa el ejecutor.
 
-    OPTIC vuelca todas las acciones ordenadas por tiempo en un unico fichero;
+    OPTIC vuelca todas las acciones ordenadas por tiempo en un único fichero;
     agruparlas por drone en ese orden produce la secuencia correcta por hilo.
     """
     plans: Dict[str, List[Action]] = {}
@@ -196,17 +209,18 @@ def load_optic_plan(plan_file: str) -> Dict[str, List[Action]]:
             plans.setdefault(drone, []).append(action)
 
     if not plans:
-        raise ValueError(f'No se encontraron acciones reconocidas en {plan_file}')
+        raise ValueError(
+            f'No se encontraron acciones reconocidas en {plan_file}')
     return plans
 
 
-# Prueba rapida al ejecutar el módulo directamente
+# Prueba rápida al ejecutar el módulo directamente
 if __name__ == '__main__':
     from pprint import pprint
 
     print("=== Probando MA-LAMA ===\n")
     try:
-        plan_dir = '/home/oscar/MA-LAMA'
+        plan_dir = os.path.expanduser('~/MA-LAMA')
         result = load_malama_plans(plan_dir)
         pprint(result)
     except FileNotFoundError as e:
@@ -214,7 +228,7 @@ if __name__ == '__main__':
 
     print("\n=== Probando OPTIC ===\n")
     try:
-        plan_file = '/home/oscar/OPTIC/optic_plan.txt'
+        plan_file = os.path.expanduser('~/OPTIC/optic_plan.txt')
         result = load_optic_plan(plan_file)
         pprint(result)
     except (FileNotFoundError, ValueError) as e:

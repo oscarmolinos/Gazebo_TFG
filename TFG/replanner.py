@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
 
 """
-replanner.py — Replanificacion sobre la marcha de una mision multi-dron.
+replanner.py — Replanificación sobre la marcha de una misión multi-dron.
 
-La mision deja de ser "un plan que se ejecuta entero" y pasa a ser una
-secuencia de FASES. Cada fase ejecuta un plan hasta que ocurre algo que lo
-invalida; entonces se reconstruye el escenario con el estado REAL de los drones
-y se vuelve a planificar desde ahi.
+La misión deja de ser "un plan que se ejecuta entero" y pasa a ser una
+secuencia de fases. Cada fase ejecuta un plan hasta que ocurre algo que lo
+invalida; entonces se reconstruye el escenario con el estado real de los drones
+y se vuelve a planificar desde ahí.
 
 Causas que interrumpen una fase (todas acaban en df.request_replan):
   - bloqueo mutuo: dos drones se esperan mutuamente y salta WP_WAIT_TIMEOUT
-  - averia programada: la clave FAILURES del escenario (fallo reproducible)
+  - avería programada: la clave FAILURES del escenario (fallo reproducible)
 
 Ciclo completo
 --------------
     1. execute_phase()      -> ejecuta el plan; los hilos salen en frontera de
-                               accion, asi que cada dron queda en un waypoint
+                               acción, así que cada dron queda en un waypoint
                                bien definido
     2. return_to_base()     -> los drones averiados vuelven a casa por un
                                corredor de altitud, EN PARALELO con el paso 3
@@ -43,21 +43,21 @@ from run_planner import run_malama, run_optic
 
 
 # Tope de replanificaciones: si el estado que provoca el fallo se reprodujera
-# igual, el bucle podria no terminar nunca.
-MAX_REPLANS = 3
+# igual, el bucle podría no terminar nunca.
+MAX_REPLANS = 10
 
-# Donde se dejan los escenarios de cada fase (para depurar y para la memoria).
+# Dónde se dejan los escenarios de cada fase (para depurar y para la memoria).
 GENERATED_DIR = './TFG/problems/generated'
 
 
 # =============================================================================
-#  RECONSTRUCCION DEL ESCENARIO
+#  RECONSTRUCCIÓN DEL ESCENARIO
 # =============================================================================
 def drone_bases(scenario: dict, ns: str) -> tuple:
     """(base_ground, base_air) de un dron, a partir de su goal y LANDING_PADS.
 
     Se usa 'goal' (su base de destino) y no 'start', porque tras la primera fase
-    'start' ya es el waypoint donde se quedo, no su casa.
+    'start' ya es el waypoint donde se quedó, no su casa.
     """
     datos = scenario.get('DRONES', {}).get(ns, {})
     ground = datos.get('goal') or datos.get('start')
@@ -69,16 +69,16 @@ def drone_bases(scenario: dict, ns: str) -> tuple:
 
 def rebuild_scenario(scenario: dict, positions: dict, photographed: list,
                      failed: set, phase: int) -> dict:
-    """Escenario nuevo a partir del estado REAL de la mision.
+    """Escenario nuevo a partir del estado real de la misión.
 
-    - cada dron arranca donde se quedo (positions, sacado de WP_OCUPIED)
+    - cada dron arranca donde se quedó (positions, sacado de WP_OCUPIED)
     - los targets ya fotografiados pasan a PHOTOGRAPHED
     - los drones averiados desaparecen, junto con sus bases y las conexiones de
-      esas bases: asi el planificador no puede mandar a nadie a ese espacio
-    - la bateria NO se arrastra: se mantiene la del escenario original
+      esas bases: así el planificador no puede mandar a nadie a ese espacio
+    - la batería no se arrastra: se mantiene la del escenario original
 
-    Se trabaja sobre una copia; el escenario que se esta volando no se toca
-    (los drones averiados todavia necesitan las coordenadas de su base).
+    Se trabaja sobre una copia; el escenario que se está volando no se toca
+    (los drones averiados todavía necesitan las coordenadas de su base).
     """
     nuevo = copy.deepcopy(scenario)
 
@@ -99,14 +99,14 @@ def rebuild_scenario(scenario: dict, positions: dict, photographed: list,
                                  if not wps_fuera & set(p[:2])]
         nuevo['VALID_PATHS'] = [p for p in nuevo.get('VALID_PATHS', [])
                                 if not wps_fuera & set(p)]
-        print(f'Fuera de la mision: {sorted(failed)} (waypoints {sorted(wps_fuera)})')
+        print(f'Fuera de la misión: {sorted(failed)} (waypoints {sorted(wps_fuera)})')
 
-    # Las averias ya disparadas no deben volver a dispararse.
+    # Las averías ya disparadas no deben volver a dispararse.
     if nuevo.get('FAILURES'):
         nuevo['FAILURES'] = [f for f in nuevo['FAILURES']
                              if f.get('drone') in nuevo.get('DRONES', {})]
 
-    # --- 2. Cada dron arranca donde esta de verdad ---
+    # --- 2. Cada dron arranca donde está de verdad ---
     for ns, datos in nuevo.get('DRONES', {}).items():
         if ns in positions:
             datos['start'] = positions[ns]
@@ -125,7 +125,7 @@ def rebuild_scenario(scenario: dict, positions: dict, photographed: list,
 
 
 def dump_scenario(scenario: dict, path: str) -> None:
-    """Guardar el escenario de la fase en YAML (trazabilidad y depuracion)."""
+    """Guardar el escenario de la fase en YAML (trazabilidad y depuración)."""
     os.makedirs(os.path.dirname(path) or '.', exist_ok=True)
     with open(path, 'w', encoding='utf-8') as f:
         yaml.safe_dump(scenario, f, allow_unicode=True, sort_keys=False,
@@ -134,19 +134,19 @@ def dump_scenario(scenario: dict, path: str) -> None:
 
 
 # =============================================================================
-#  PLANIFICACION
+#  PLANIFICACIÓN
 # =============================================================================
 def generate_and_plan(scenario: dict, planner: str) -> dict:
     """Generar el PDDL de este escenario, planificar y devolver los planes.
 
-    Devuelve None si el planificador no encuentra solucion.
+    Devuelve None si el planificador no encuentra solución.
     """
     pg.generate_problem(scenario)
 
     config = scenario['CONFIG']
     if planner == 'MA-LAMA':
-        # Si tras las averias solo queda un dron, hay que salir del modo
-        # multiagente: con un unico agente MA-LAMA entra en un bucle infinito.
+        # Si tras las averías solo queda un dron, hay que salir del modo
+        # multiagente: con un único agente MA-LAMA entra en un bucle infinito.
         multiagente = len(scenario.get('DRONES', {})) > 1
         if not run_malama(config, multiagente=multiagente):
             return None
@@ -158,7 +158,7 @@ def generate_and_plan(scenario: dict, planner: str) -> dict:
 
 
 def pending_targets(scenario: dict) -> list:
-    """Targets que aun quedan por fotografiar en este escenario."""
+    """Targets que aún quedan por fotografiar en este escenario."""
     hechos = set(scenario.get('PHOTOGRAPHED') or [])
     return [t for t in scenario.get('TARGETS', []) if t not in hechos]
 
@@ -169,25 +169,26 @@ def pending_targets(scenario: dict) -> list:
 def start_returns(drones: dict, scenario: dict, failed: set) -> list:
     """Lanzar el retorno a base de los drones averiados (hilos, no bloquea).
 
-    Se llama ANTES de reconstruir el escenario, porque necesita las coordenadas
-    de las bases que el escenario nuevo ya no tendra. Vuelan mientras el
+    Se llama antes de reconstruir el escenario, porque necesita las coordenadas
+    de las bases que el escenario nuevo ya no tendrá. Vuelan mientras el
     planificador trabaja.
     """
     import threading
 
     altitud = df.rtl_altitude(scenario)
+    land_speed = float(scenario.get('CONFIG', {}).get('land_speed', df.DEFAULT_LAND_SPEED))
     hilos = []
     for ns in sorted(failed):
         if ns not in drones:
             continue
         ground, _ = drone_bases(scenario, ns)
         if not ground or ground not in scenario['COORDS']:
-            print(f'[{ns}] sin base conocida, no se puede volver: se deja donde esta')
+            print(f'[{ns}] sin base conocida, no se puede volver: se deja donde está')
             continue
         base_xy = scenario['COORDS'][ground][:2]
         speed = scenario['DRONES'].get(ns, {}).get('speed', df.DEFAULT_SPEED)
         t = threading.Thread(target=df.return_to_base,
-                             args=(drones[ns], base_xy, altitud, speed),
+                             args=(drones[ns], base_xy, altitud, speed, land_speed),
                              name=f'rtl_{ns}')
         t.start()
         hilos.append(t)
@@ -196,12 +197,12 @@ def start_returns(drones: dict, scenario: dict, failed: set) -> list:
 
 def run_mission(drones: dict, scenario: dict, plans: dict,
                 planner: str = 'MA-LAMA', max_replans: int = MAX_REPLANS) -> None:
-    """Ejecutar la mision completa, replanificando cuando haga falta.
+    """Ejecutar la misión completa, replanificando cuando haga falta.
 
-    'plans' es el plan de la fase 0 (el que ya venia calculado). A partir de ahi,
-    cada interrupcion genera un escenario y un plan nuevos.
+    'plans' es el plan de la fase 0 (el que ya venía calculado). A partir de ahí,
+    cada interrupción genera un escenario y un plan nuevos.
     """
-    # Preparacion de la MISION (una sola vez, no por fase).
+    # Preparación de la MISIÓN (una sola vez, no por fase).
     df.clear_photos()
     with df.MISSION_LOG_LOCK:
         df.MISSION_LOG.clear()
@@ -211,28 +212,28 @@ def run_mission(drones: dict, scenario: dict, plans: dict,
     escenario = scenario
     fase = 0
     retirados = set()       # averiados que YA volvieron a base en fases anteriores
-    todos_hilos_rtl = []    # se unen al final: no bloquean el resto de la mision
+    todos_hilos_rtl = []    # se unen al final: no bloquean el resto de la misión
 
     while True:
         print(f'\n===== FASE {fase} =====')
         motivo = df.execute_phase(drones, escenario, plans)
 
         if motivo is None:
-            print('\nMision completada: no queda nada que replanificar')
+            print('\nMisión completada: no queda nada que replanificar')
             break
 
         if fase >= max_replans:
-            print(f'\nLimite de {max_replans} replanificaciones alcanzado; se aborta')
+            print(f'\nLímite de {max_replans} replanificaciones alcanzado; se aborta')
             break
 
         fase += 1
-        print(f'\n===== REPLANIFICACION {fase}: {motivo} =====')
+        print(f'\n===== REPLANIFICACIÓN {fase}: {motivo} =====')
 
-        # Los averiados se van a casa en PARALELO con el resto de la mision: no
+        # Los averiados se van a casa en paralelo con el resto de la misión: no
         # se espera a que aterricen para seguir. El corredor de altitud (por
         # encima de todas las rutas) es lo que hace esto seguro. Solo los que
-        # aun no han vuelto: failed_drones() acumula, y los de fases anteriores
-        # ya estan en tierra.
+        # aún no han vuelto: failed_drones() acumula, y los de fases anteriores
+        # ya están en tierra.
         averiados = df.failed_drones() - retirados
         todos_hilos_rtl.extend(start_returns(drones, escenario, averiados))
         retirados |= averiados
@@ -243,17 +244,17 @@ def run_mission(drones: dict, scenario: dict, plans: dict,
             GENERATED_DIR, f"{os.path.splitext(escenario['CONFIG']['output_file'])[0]}.yaml"))
 
         if not escenario.get('DRONES'):
-            print('No quedan drones operativos; se termina la mision')
+            print('No quedan drones operativos; se termina la misión')
             break
 
         plans = generate_and_plan(escenario, planner)
         if not plans:
-            print('El planificador no encontro solucion; se termina la mision')
+            print('El planificador no encontró solución; se termina la misión')
             break
 
-    # Se espera aqui, no en cada transicion de fase: los drones sanos ya
+    # Se espera aquí, no en cada transición de fase: los drones sanos ya
     # terminaron, pero antes de devolver el control (shutdown_drones cierra
-    # rclpy) hay que asegurarse de que ningun RTL siga en el aire.
+    # rclpy) hay que asegurarse de que ningún RTL siga en el aire.
     for t in todos_hilos_rtl:
         t.join()
 

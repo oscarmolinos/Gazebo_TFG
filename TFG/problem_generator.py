@@ -8,7 +8,7 @@ Generador automático de problemas PDDL de inspección con drones.
 Filosofía de diseño
 --------------------
 Los DATOS (geometría, física, drones, conectividad y objetivos) llegan en un
-diccionario `scenario` (cargado del YAML del problema) que se pasa como
+diccionario 'scenario' (cargado del YAML del problema) que se pasa como
 ARGUMENTO a generate_problem(). La LÓGICA de escritura es completamente
 genérica: no conoce ningún nombre de waypoint ni de dron concreto, y no usa
 variables globales de módulo.
@@ -51,10 +51,8 @@ def fmt(x, decimals):
 
 
 def euclidean(a, b, coords):
-    """Distancia euclídea entre dos puntos de 'coords'. Soporta 2D o 3D
-    indistintamente (usa todas las componentes que tengan los puntos)."""
-    pa, pb = coords[a], coords[b]
-    return math.hypot(*(j - i for i, j in zip(pa, pb)))
+    """Distancia euclídea entre dos puntos de 'coords'."""
+    return math.dist(coords[a], coords[b])
 
 
 def write_objects(scenario):

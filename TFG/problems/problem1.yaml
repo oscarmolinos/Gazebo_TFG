@@ -1,12 +1,13 @@
 # =============================================================================
-#  PROBLEMA 2 — escenario para el generador PDDL (ver TFG/problem_generator.py)
-#  Uso: python3 run_problem.py problems/problem2.yaml
+#  PROBLEMA 1 — escenario para el generador PDDL (ver TFG/problem_generator.py)
+#  Datos tomados de mission_problem1.py (un solo dron, dos viewpoints).
+#  Uso: python3 run_problem.py problems/problem1.yaml
 # =============================================================================
 
 CONFIG:
-  problem_name: drone_problem2
+  problem_name: drone_problem1
   domain_name: drone_domain
-  output_file: problem2.pddl
+  output_file: problem1.pddl
 
   photo_time: 5.0      # segundos para tomar una fotografía
   recharge_rate: 10.0  # carga recuperada por segundo
@@ -20,19 +21,14 @@ CONFIG:
 
 # Coordenadas (x, y, z) en metros. z es la ALTITUD.
 COORDS:
-  base1_ground: [-5.0, 1.5, 0.0]
-  base1_air:    [-5.0, 1.5, 2.0]
-  vp1:          [-2.4, 2.4, 3.1]
-  vp2:          [2.4, 2.4, 3.1]
-  tgt1:         [-1.4, 1.4, 2.1]
-  tgt2:         [1.4, 1.4, 2.1]
+  base1_ground: [-5.0, 0.0, 0.0]
+  base1_air:    [-5.0, 0.0, 2.0]
 
-  base2_ground: [-5.0, -1.5, 0.0]
-  base2_air:    [-5.0, -1.5, 2.0]
-  vp3:          [-2.4, -2.4, 3.1]
-  vp4:          [2.4, -2.4, 3.1]
-  tgt3:         [-1.4, -1.4, 2.1]
-  tgt4:         [1.4, -1.4, 2.1]
+  vp1:          [-2.4, -2.4, 3.1]
+  vp2:          [2.4, 2.4, 3.1]
+
+  tgt1:         [-1.4, -1.4, 2.1]
+  tgt2:         [1.4, 1.4, 2.1]
 
   wp1:          [0.0, 0.0, 3.0]
 
@@ -40,18 +36,14 @@ COORDS:
 WAYPOINTS:
   base1_ground: {type: ground, safety_margin: 1.0, is_recharge: true}
   base1_air:    {type: air, safety_margin: 20.0}
-  base2_ground: {type: ground, safety_margin: 1.0, is_recharge: true}
-  base2_air:    {type: air, safety_margin: 20.0}
 
   vp1: {type: air, safety_margin: 20.0}
   vp2: {type: air, safety_margin: 20.0}
-  vp3: {type: air, safety_margin: 20.0}
-  vp4: {type: air, safety_margin: 20.0}
 
   wp1: {type: air, safety_margin: 20.0}
 
 # Targets a fotografiar.
-TARGETS: [tgt1, tgt2, tgt3, tgt4]
+TARGETS: [tgt1, tgt2]
 
 # Targets que ya están fotografiados
 PHOTOGRAPHED: []
@@ -59,36 +51,24 @@ PHOTOGRAPHED: []
 # Transiciones suelo <-> aire: [ground, air, takeoff_cost, land_cost]
 LANDING_PADS:
   - [base1_ground, base1_air, 2.0, 1.0]
-  - [base2_ground, base2_air, 2.0, 1.0]
 
 # Conectividad aire <-> aire (se declara una vez por par; la ida y la vuelta
 # se generan automáticamente).
 VALID_PATHS:
-  - [base1_air, vp1]
-  - [vp1, vp2]
-
-  - [base2_air, vp3]
-  - [vp3, vp4]
-
-  - [vp2, vp4]
+  - [base1_air, wp1]
 
   - [vp1, wp1]
   - [vp2, wp1]
-  - [vp3, wp1]
-  - [vp4, wp1]
 
 # Desde qué viewpoint se puede fotografiar cada target.
 CAN_PHOTOGRAPH:
   vp1: tgt1
   vp2: tgt2
-  vp3: tgt3
-  vp4: tgt4
 
 # Posición inicial, batería, velocidad y base objetivo final de cada dron.
 DRONES:
   drone1: {start: base1_ground, battery_level: 100.0, battery_capacity: 100.0, speed: 1.0, goal: base1_ground}
-  drone2: {start: base2_ground, battery_level: 100.0, battery_capacity: 100.0, speed: 1.0, goal: base2_ground}
 
 # Simula el fallo de un dron en un instante de tiempo
-FAILURES:
-  - {drone: drone2, at_time: 20.0}
+FAILURES: 
+  - {drone: drone1, at_time: 20.0}

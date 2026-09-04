@@ -4,15 +4,17 @@
 run_problem.py — Punto de entrada genérico para problemas PDDL.
 
 Carga el escenario (geometría, drones, conectividad, objetivos...) desde un
-fichero YAML, genera el PDDL con problem_generator, ejecuta el planificador
-MA-LAMA, carga el plan resultante y lanza la mision en el simulador.
+fichero YAML, genera el PDDL con problem_generator, pregunta (via inquirer)
+qué planificador usar (MA-LAMA u OPTIC), carga el plan resultante y lanza la
+misión en el simulador a través de replanner.run_mission, que se encarga de
+replanificar si hace falta.
 
 Para crear un problema nuevo basta con añadir un YAML en problems/ (copiando
 uno existente como plantilla); este script no necesita cambios.
 
-Uso:
-    python3 run_problem.py problems/problem2.yaml
-    python3 run_problem.py problems/problem3.yaml
+Uso (en la ruta ~/Aerostack2/project_gazebo/):
+    python3 ./TFG/run_problem.py ./TFG/problems/problem2.yaml
+    python3 ./TFG/run_problem.py ./TFG/problems/problem3.yaml
 """
 
 import argparse
@@ -48,7 +50,7 @@ def load_scenario(path: str) -> dict:
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Generar PDDL, planificar y ejecutar una mision a partir de un escenario YAML.')
+        description='Generar PDDL, planificar y ejecutar una misión a partir de un escenario YAML.')
     parser.add_argument('scenario', help='ruta al YAML del problema (p.ej. problems/problem2.yaml)')
     args = parser.parse_args()
 

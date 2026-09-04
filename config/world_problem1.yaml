@@ -5,7 +5,7 @@ origin:
     altitude: 100.0
 drones:
   - model_type: "quadrotor_base"
-    model_name: "drone3"
+    model_name: "drone1"
     flight_time: 60
     xyz:
       - -5.0

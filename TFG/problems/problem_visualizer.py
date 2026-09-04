@@ -10,7 +10,8 @@ import xml.etree.ElementTree as ET
 import inquirer
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+from mpl_toolkits.mplot3d import proj3d
+from mpl_toolkits.mplot3d.art3d import Line3DCollection, Poly3DCollection
 import numpy as np
 import yaml
 
@@ -93,9 +94,9 @@ def parse_sdf_boxes(sdf_path: str) -> list[dict]:
         diffuse_el = model.find('.//material/diffuse')
         if diffuse_el is not None:
             rgba = list(map(float, diffuse_el.text.split()))
-            color = (rgba[0], rgba[1], rgba[2], 0.6)
+            color = (rgba[0], rgba[1], rgba[2], 1.0)
         else:
-            color = (0.8, 0.8, 0.8, 0.6)
+            color = (0.8, 0.8, 0.8, 1.0)
 
         boxes.append({
             'name': name, 'cx': cx, 'cy': cy, 'cz': cz,
@@ -250,6 +251,64 @@ def _box_faces(cx, cy, cz, sx, sy, sz):
     ]
     return [corners[face].tolist() for face in idx]
 
+_FACE_SHADE = [0.55, 1.00, 0.78, 0.78, 0.88, 0.88]
+
+_SEG_LEN = 1.0
+_MAX_SEGS = 16
+
+_MARKER_ZORDER = 10000
+
+
+def _shaded_face_colors(rgb):
+    """Aplicar un sombreado distinto a cada cara para dar sensacion de volumen."""
+    return [tuple(min(1.0, c * f) for c in rgb[:3]) for f in _FACE_SHADE]
+
+
+class _Box3D(Poly3DCollection):
+    """Caja opaca ordenada por su centro en vez de por su vertice mas cercano.
+
+    Poly3DCollection se ordena por el vertice mas proximo a la camara, lo que
+    "acerca" la caja y hace que tape cosas que en realidad pasan por delante o
+    por encima de ella.
+    """
+
+    def __init__(self, faces, center, **kwargs):
+        super().__init__(faces, **kwargs)
+        self._center = np.asarray(center, dtype=float)
+
+    def do_3d_projection(self):
+        super().do_3d_projection()
+        return proj3d.proj_transform(*self._center, self.axes.M)[2]
+
+
+def _plot_marker_3d(ax, p, marker, color, size, edgewidth=0.5):
+    """Dibujar un marcador 3D que nunca queda tapado por las cajas.
+
+    Se usa ax.plot en vez de ax.scatter justo por lo contrario que en
+    _plot_line_3d: el Line3D resultante queda fuera de la ordenacion por
+    profundidad y conserva el zorder alto que le damos.
+    """
+    ax.plot([p[0]], [p[1]], [p[2]], linestyle="none", marker=marker,
+            markersize=np.sqrt(size), markerfacecolor=color,
+            markeredgecolor="black", markeredgewidth=edgewidth,
+            zorder=_MARKER_ZORDER)
+
+
+def _plot_line_3d(ax, p0, p1, **style):
+    """Dibujar una linea 3D que respeta la oclusion de las cajas.
+
+    ax.plot crea un Line3D, que al heredar de Line2D no es una Collection y por
+    tanto matplotlib lo deja fuera de la ordenacion por profundidad: conserva un
+    zorder fijo y acaba siempre por debajo de las cajas. Un Line3DCollection si
+    entra en esa ordenacion, y partir la linea en tramos hace que solo se oculte
+    el trozo que realmente pasa por detras.
+    """
+    p0, p1 = np.asarray(p0, dtype=float), np.asarray(p1, dtype=float)
+    n = int(np.clip(np.ceil(np.linalg.norm(p1 - p0) / _SEG_LEN), 1, _MAX_SEGS))
+    pts = np.linspace(p0, p1, n + 1)
+    for a, b in zip(pts[:-1], pts[1:]):
+        ax.add_collection3d(Line3DCollection([[a, b]], **style))
+
 
 def visualize_3d(data: dict, title: str, boxes: list[dict]) -> None:
     coords, valid_paths, landing_pads, can_photo, drones = _extract(data)
@@ -265,51 +324,55 @@ def visualize_3d(data: dict, title: str, boxes: list[dict]) -> None:
         all_ys += [b['cy'] - b['sy']/2, b['cy'] + b['sy']/2]
         all_zs += [b['cz'] - b['sz']/2, b['cz'] + b['sz']/2]
     margin = 2
-    ax.set_xlim(min(all_xs) - margin, max(all_xs) + margin)
-    ax.set_ylim(min(all_ys) - margin, max(all_ys) + margin)
-    ax.set_zlim(max(min(all_zs) - margin, -0.5), max(all_zs) + margin)
+    xlim = (min(all_xs) - margin, max(all_xs) + margin)
+    ylim = (min(all_ys) - margin, max(all_ys) + margin)
+    zlim = (max(min(all_zs) - margin, -0.5), max(all_zs) + margin)
+    ax.set_xlim(*xlim)
+    ax.set_ylim(*ylim)
+    ax.set_zlim(*zlim)
+    # Misma escala en los tres ejes: la caja de dibujo se hace proporcional al
+    # rango de datos, de modo que un metro ocupa lo mismo en X, Y y Z y los
+    # obstaculos no salen deformados. (set_aspect('equal') no vale en 3D
+    # hasta matplotlib 3.6.)
+    ax.set_box_aspect((xlim[1] - xlim[0], ylim[1] - ylim[0], zlim[1] - zlim[0]))
     ax.set_xlabel("X (m)")
     ax.set_ylabel("Y (m)")
     ax.set_zlabel("Z (m)")
     ax.set_title(f"{title} (3D)", fontsize=14)
 
+    # Cajas opacas: ocultan lineas y puntos que queden detras
     for b in boxes:
         faces = _box_faces(b['cx'], b['cy'], b['cz'],
                            b['sx'], b['sy'], b['sz'])
-        poly = Poly3DCollection(faces, alpha=b['color'][3],
-                                facecolor=b['color'][:3],
-                                edgecolor='black', linewidth=0.4)
+        poly = _Box3D(faces, (b['cx'], b['cy'], b['cz']),
+                      facecolors=_shaded_face_colors(b['color']),
+                      edgecolor='black', linewidth=0.4, zsort='average')
+        poly.set_alpha(None)
         ax.add_collection3d(poly)
 
     for a, b in valid_paths:
         if a in coords and b in coords:
-            ax.plot([coords[a][0], coords[b][0]],
-                    [coords[a][1], coords[b][1]],
-                    [coords[a][2], coords[b][2]],
-                    color="#BDBDBD", linewidth=1.2)
+            _plot_line_3d(ax, coords[a], coords[b],
+                          color="#BDBDBD", linewidth=1.2)
 
     for pad in landing_pads:
         g, a = pad[0], pad[1]
         if g in coords and a in coords:
-            ax.plot([coords[g][0], coords[a][0]],
-                    [coords[g][1], coords[a][1]],
-                    [coords[g][2], coords[a][2]],
-                    color="#A5D6A7", linewidth=1.2, linestyle="--")
+            _plot_line_3d(ax, coords[g], coords[a],
+                          color="#A5D6A7", linewidth=1.2, linestyle="--")
 
     for vp_name, tgt_name in can_photo.items():
         if vp_name in coords and tgt_name in coords:
-            vp, tg = coords[vp_name], coords[tgt_name]
-            ax.plot([vp[0], tg[0]], [vp[1], tg[1]], [vp[2], tg[2]],
-                    color="#EF9A9A", linewidth=1.0, linestyle="--")
+            _plot_line_3d(ax, coords[vp_name], coords[tgt_name],
+                          color="#EF9A9A", linewidth=1.0, linestyle="--")
 
     plotted_types = set()
     for name, (x, y, z) in coords.items():
         kind = classify_point(name)
         st = STYLE[kind]
-        ax.scatter(x, y, z, marker=st["marker"], c=st["color"],
-                   s=st["s"], edgecolors="black", linewidths=0.5,
-                   depthshade=False)
-        ax.text(x, y, z + 0.3, name, fontsize=6, ha="center")
+        _plot_marker_3d(ax, (x, y, z), st["marker"], st["color"], st["s"])
+        ax.text(x, y, z + 0.3, name, fontsize=6, ha="center",
+                zorder=_MARKER_ZORDER + 1)
         plotted_types.add(kind)
 
     for i, (ns, info) in enumerate(drones.items()):
@@ -317,10 +380,9 @@ def visualize_3d(data: dict, title: str, boxes: list[dict]) -> None:
         if start in coords:
             x, y, z = coords[start]
             color = DRONE_COLORS[i % len(DRONE_COLORS)]
-            ax.scatter(x, y, z, marker="P", c=color, s=220,
-                       edgecolors="black", linewidths=1.0, depthshade=False)
+            _plot_marker_3d(ax, (x, y, z), "P", color, 220, edgewidth=1.0)
             ax.text(x, y, z - 0.6, ns, fontsize=8, fontweight="bold",
-                    color=color, ha="center")
+                    color=color, ha="center", zorder=_MARKER_ZORDER + 1)
 
     ax.legend(handles=_build_legend(plotted_types), loc="upper left",
               fontsize=8, framealpha=0.9)

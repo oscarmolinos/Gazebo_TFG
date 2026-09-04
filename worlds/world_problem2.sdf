@@ -46,22 +46,22 @@
       <uri>model://ground_plane</uri>
     </include>
 
-    <!-- Cubo blanco grande 3x3x3 m, centrado y apoyado en el suelo (centro en z=1.5) -->
+    <!-- Cubo blanco grande 3x3x2 m, centrado y apoyado en el suelo (centro en z=1.0) -->
     <model name="cubo_blanco">
       <static>true</static>
-      <pose>0 0 1.5 0 0 0</pose>
+      <pose>0 0 1.0 0 0 0</pose>
       <link name="cubo_blanco_link">
         <collision name="cubo_blanco_col">
           <geometry>
             <box>
-              <size>3 3 3</size>
+              <size>3 3 2</size>
             </box>
           </geometry>
         </collision>
         <visual name="cubo_blanco_vis">
           <geometry>
             <box>
-              <size>3 3 3</size>
+              <size>3 3 2</size>
             </box>
           </geometry>
           <material>
@@ -74,10 +74,10 @@
     </model>
 
     <!-- Cubo pequeno ROJO 0.2x0.2x0.2 m, esquina superior (+x, +y) -->
-    <!-- Apoyado sobre la cara superior (z = 3 + 0.1) e insertado 0.1 desde el borde -->
+    <!-- Apoyado sobre la cara superior (z = 2 + 0.1) e insertado 0.1 desde el borde -->
     <model name="cubo_rojo">
       <static>true</static>
-      <pose>1.4 1.4 3.1 0 0 0</pose>
+      <pose>1.4 1.4 2.1 0 0 0</pose>
       <link name="cubo_rojo_link">
         <collision name="cubo_rojo_col">
           <geometry>
@@ -104,7 +104,7 @@
     <!-- Cubo pequeno AMARILLO 0.2x0.2x0.2 m, esquina superior opuesta (-x, -y) -->
     <model name="cubo_amarillo">
       <static>true</static>
-      <pose>-1.4 -1.4 3.1 0 0 0</pose>
+      <pose>-1.4 -1.4 2.1 0 0 0</pose>
       <link name="cubo_amarillo_link">
         <collision name="cubo_amarillo_col">
           <geometry>
@@ -131,7 +131,7 @@
     <!-- Cubo pequeno AZUL 0.2x0.2x0.2 m, esquina superior (+x, -y) -->
     <model name="cubo_azul">
       <static>true</static>
-      <pose>1.4 -1.4 3.1 0 0 0</pose>
+      <pose>1.4 -1.4 2.1 0 0 0</pose>
       <link name="cubo_azul_link">
         <collision name="cubo_azul_col">
           <geometry>
@@ -158,7 +158,7 @@
     <!-- Cubo pequeno VERDE 0.2x0.2x0.2 m, esquina superior (-x, +y) -->
     <model name="cubo_verde">
       <static>true</static>
-      <pose>-1.4 1.4 3.1 0 0 0</pose>
+      <pose>-1.4 1.4 2.1 0 0 0</pose>
       <link name="cubo_verde_link">
         <collision name="cubo_verde_col">
           <geometry>

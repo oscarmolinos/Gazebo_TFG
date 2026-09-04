@@ -47,21 +47,47 @@
     </include>
 
     <!-- ============ OBSTACULOS ============ -->
-    <!-- obstaculo_1: caja 3.0x3.0x3.0, cara superior z=3.0 -->
+    <!-- obstaculo_1: caja 3.0x3.0x2.0, cara superior z=2.0 -->
     <model name="obstaculo_1">
       <static>true</static>
-      <pose>7.5 0.0 1.5 0 0 0</pose>
+      <pose>7.5 0.0 1.0 0 0 0</pose>
       <link name="obstaculo_1_link">
         <collision name="obstaculo_1_col">
           <geometry>
             <box>
-              <size>3.0 3.0 3.0</size>
+              <size>3.0 3.0 2.0</size>
             </box>
           </geometry>
         </collision>
         <visual name="obstaculo_1_vis">
           <geometry>
             <box>
+              <size>3.0 3.0 2.0</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.9 0.9 0.9 1</ambient>
+            <diffuse>0.95 0.95 0.95 1</diffuse>
+            <specular>0.3 0.3 0.3 1</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+    <!-- obstaculo_2: caja 3.0x3.0x3.0, cara superior z=3.0 -->
+    <model name="obstaculo_2">
+      <static>true</static>
+      <pose>-3.75 6.5 1.5 0 0 0</pose>
+      <link name="obstaculo_2_link">
+        <collision name="obstaculo_2_col">
+          <geometry>
+            <box>
+              <size>3.0 3.0 3.0</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="obstaculo_2_vis">
+          <geometry>
+            <box>
               <size>3.0 3.0 3.0</size>
             </box>
           </geometry>
@@ -73,48 +99,22 @@
         </visual>
       </link>
     </model>
-    <!-- obstaculo_2: caja 3.0x3.0x6.0, cara superior z=6.0 -->
-    <model name="obstaculo_2">
-      <static>true</static>
-      <pose>-3.75 6.5 3.0 0 0 0</pose>
-      <link name="obstaculo_2_link">
-        <collision name="obstaculo_2_col">
-          <geometry>
-            <box>
-              <size>3.0 3.0 6.0</size>
-            </box>
-          </geometry>
-        </collision>
-        <visual name="obstaculo_2_vis">
-          <geometry>
-            <box>
-              <size>3.0 3.0 6.0</size>
-            </box>
-          </geometry>
-          <material>
-            <ambient>0.9 0.9 0.9 1</ambient>
-            <diffuse>0.95 0.95 0.95 1</diffuse>
-            <specular>0.3 0.3 0.3 1</specular>
-          </material>
-        </visual>
-      </link>
-    </model>
-    <!-- obstaculo_3: caja 6.0x3.0x3.0, cara superior z=3.0 -->
+    <!-- obstaculo_3: caja 6.0x3.0x2.0, cara superior z=2.0 -->
     <model name="obstaculo_3">
       <static>true</static>
-      <pose>-3.75 -6.5 1.5 0 0 0</pose>
+      <pose>-3.75 -6.5 1.0 0 0 0</pose>
       <link name="obstaculo_3_link">
         <collision name="obstaculo_3_col">
           <geometry>
             <box>
-              <size>6.0 3.0 3.0</size>
+              <size>6.0 3.0 2.0</size>
             </box>
           </geometry>
         </collision>
         <visual name="obstaculo_3_vis">
           <geometry>
             <box>
-              <size>6.0 3.0 3.0</size>
+              <size>6.0 3.0 2.0</size>
             </box>
           </geometry>
           <material>
@@ -130,7 +130,7 @@
     <!-- tgt1 (rojo) sobre obstaculo_1 -->
     <model name="cubo_rojo">
       <static>true</static>
-      <pose>8.9 1.4 3.1 0 0 0</pose>
+      <pose>8.9 1.4 2.1 0 0 0</pose>
       <link name="cubo_rojo_link">
         <collision name="cubo_rojo_col">
           <geometry>
@@ -156,7 +156,7 @@
     <!-- tgt2 (amarillo) sobre obstaculo_1 -->
     <model name="cubo_amarillo">
       <static>true</static>
-      <pose>6.1 -1.4 3.1 0 0 0</pose>
+      <pose>6.1 -1.4 2.1 0 0 0</pose>
       <link name="cubo_amarillo_link">
         <collision name="cubo_amarillo_col">
           <geometry>
@@ -182,7 +182,7 @@
     <!-- tgt3 (azul) sobre obstaculo_1 -->
     <model name="cubo_azul">
       <static>true</static>
-      <pose>8.9 -1.4 3.1 0 0 0</pose>
+      <pose>8.9 -1.4 2.1 0 0 0</pose>
       <link name="cubo_azul_link">
         <collision name="cubo_azul_col">
           <geometry>
@@ -208,7 +208,7 @@
     <!-- tgt4 (verde) sobre obstaculo_1 -->
     <model name="cubo_verde">
       <static>true</static>
-      <pose>6.1 1.4 3.1 0 0 0</pose>
+      <pose>6.1 1.4 2.1 0 0 0</pose>
       <link name="cubo_verde_link">
         <collision name="cubo_verde_col">
           <geometry>
@@ -234,7 +234,7 @@
     <!-- tgt5 (naranja) sobre obstaculo_2 -->
     <model name="cubo_naranja">
       <static>true</static>
-      <pose>-2.35 7.9 6.1 0 0 0</pose>
+      <pose>-2.35 7.9 3.1 0 0 0</pose>
       <link name="cubo_naranja_link">
         <collision name="cubo_naranja_col">
           <geometry>
@@ -260,7 +260,7 @@
     <!-- tgt6 (morado) sobre obstaculo_2 -->
     <model name="cubo_morado">
       <static>true</static>
-      <pose>-5.15 5.1 6.1 0 0 0</pose>
+      <pose>-5.15 5.1 3.1 0 0 0</pose>
       <link name="cubo_morado_link">
         <collision name="cubo_morado_col">
           <geometry>
@@ -286,7 +286,7 @@
     <!-- tgt7 (cian) sobre obstaculo_2 -->
     <model name="cubo_cian">
       <static>true</static>
-      <pose>-2.35 5.1 6.1 0 0 0</pose>
+      <pose>-2.35 5.1 3.1 0 0 0</pose>
       <link name="cubo_cian_link">
         <collision name="cubo_cian_col">
           <geometry>
@@ -312,7 +312,7 @@
     <!-- tgt8 (magenta) sobre obstaculo_2 -->
     <model name="cubo_magenta">
       <static>true</static>
-      <pose>-5.15 7.9 6.1 0 0 0</pose>
+      <pose>-5.15 7.9 3.1 0 0 0</pose>
       <link name="cubo_magenta_link">
         <collision name="cubo_magenta_col">
           <geometry>
@@ -338,7 +338,7 @@
     <!-- tgt9 (lima) sobre obstaculo_3 -->
     <model name="cubo_lima">
       <static>true</static>
-      <pose>-0.85 -5.1 3.1 0 0 0</pose>
+      <pose>-0.85 -5.1 2.1 0 0 0</pose>
       <link name="cubo_lima_link">
         <collision name="cubo_lima_col">
           <geometry>
@@ -364,7 +364,7 @@
     <!-- tgt10 (color9) sobre obstaculo_3 -->
     <model name="cubo_color9">
       <static>true</static>
-      <pose>-6.65 -7.9 3.1 0 0 0</pose>
+      <pose>-6.65 -7.9 2.1 0 0 0</pose>
       <link name="cubo_color9_link">
         <collision name="cubo_color9_col">
           <geometry>
@@ -390,7 +390,7 @@
     <!-- tgt11 (color10) sobre obstaculo_3 -->
     <model name="cubo_color10">
       <static>true</static>
-      <pose>-0.85 -7.9 3.1 0 0 0</pose>
+      <pose>-0.85 -7.9 2.1 0 0 0</pose>
       <link name="cubo_color10_link">
         <collision name="cubo_color10_col">
           <geometry>
@@ -416,7 +416,7 @@
     <!-- tgt12 (color11) sobre obstaculo_3 -->
     <model name="cubo_color11">
       <static>true</static>
-      <pose>-6.65 -5.1 3.1 0 0 0</pose>
+      <pose>-6.65 -5.1 2.1 0 0 0</pose>
       <link name="cubo_color11_link">
         <collision name="cubo_color11_col">
           <geometry>

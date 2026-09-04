@@ -8,9 +8,9 @@ CONFIG:
   domain_name: drone_domain
   output_file: problem4.pddl
 
-  photo_time: 5.0      # segundos para tomar una fotografia
+  photo_time: 5.0      # segundos para tomar una fotografía
   recharge_rate: 10.0  # carga recuperada por segundo
-  fly_cost_factor: 0.1 # bateria consumida por metro volado
+  fly_cost_factor: 0.1 # batería consumida por metro volado
   decimals: 2          # decimales con los que se escriben los numeros
 
   takeoff_speed: 1.0
@@ -21,44 +21,44 @@ CONFIG:
 # Coordenadas (x, y, z) en metros. z es la ALTITUD.
 COORDS:
   base1_ground: [-13.5, -3.0, 0.0]
-  base1_air:    [-13.5, -3.0, 3.0]
+  base1_air:    [-13.5, -3.0, 2.0]
   base2_ground: [-13.5, -1.0, 0.0]
-  base2_air:    [-13.5, -1.0, 3.0]
+  base2_air:    [-13.5, -1.0, 2.0]
   base3_ground: [-13.5, 1.0, 0.0]
-  base3_air:    [-13.5, 1.0, 3.0]
+  base3_air:    [-13.5, 1.0, 2.0]
   base4_ground: [-13.5, 3.0, 0.0]
-  base4_air:    [-13.5, 3.0, 3.0]
+  base4_air:    [-13.5, 3.0, 2.0]
 
-  tgt1: [8.9, 1.4, 3.1]
-  tgt2: [6.1, -1.4, 3.1]
-  tgt3: [8.9, -1.4, 3.1]
-  tgt4: [6.1, 1.4, 3.1]
-  tgt5: [-2.35, 7.9, 6.1]
-  tgt6: [-5.15, 5.1, 6.1]
-  tgt7: [-2.35, 5.1, 6.1]
-  tgt8: [-5.15, 7.9, 6.1]
-  tgt9: [-0.85, -5.1, 3.1]
-  tgt10: [-6.65, -7.9, 3.1]
-  tgt11: [-0.85, -7.9, 3.1]
-  tgt12: [-6.65, -5.1, 3.1]
+  tgt1: [8.9, 1.4, 2.1]
+  tgt2: [6.1, -1.4, 2.1]
+  tgt3: [8.9, -1.4, 2.1]
+  tgt4: [6.1, 1.4, 2.1]
+  tgt5: [-2.35, 7.9, 3.1]
+  tgt6: [-5.15, 5.1, 3.1]
+  tgt7: [-2.35, 5.1, 3.1]
+  tgt8: [-5.15, 7.9, 3.1]
+  tgt9: [-0.85, -5.1, 2.1]
+  tgt10: [-6.65, -7.9, 2.1]
+  tgt11: [-0.85, -7.9, 2.1]
+  tgt12: [-6.65, -5.1, 2.1]
 
-  vp1: [9.61, 2.11, 4.1]
-  vp2: [5.39, -2.11, 4.1]
-  vp3: [9.61, -2.11, 4.1]
-  vp4: [5.39, 2.11, 4.1]
-  vp5: [-1.64, 8.6, 7.1]
-  vp6: [-5.86, 4.39, 7.1]
-  vp7: [-1.64, 4.39, 7.1]
-  vp8: [-5.86, 8.6, 7.1]
-  vp9: [0.05, -4.66, 4.1]
-  vp10: [-7.55, -8.33, 4.1]
-  vp11: [0.05, -8.33, 4.1]
-  vp12: [-7.55, -4.66, 4.1]
+  vp1: [9.61, 2.11, 3.1]
+  vp2: [5.39, -2.11, 3.1]
+  vp3: [9.61, -2.11, 3.1]
+  vp4: [5.39, 2.11, 3.1]
+  vp5: [-1.64, 8.6, 4.1]
+  vp6: [-5.86, 4.39, 4.1]
+  vp7: [-1.64, 4.39, 4.1]
+  vp8: [-5.86, 8.6, 4.1]
+  vp9: [0.05, -4.66, 3.1]
+  vp10: [-7.55, -8.33, 3.1]
+  vp11: [0.05, -8.33, 3.1]
+  vp12: [-7.55, -4.66, 3.1]
 
-  wp1: [0.0, 0.0, 8.0]
-  wp2: [7.5, 0.0, 5.0]
-  wp3: [-3.75, 6.5, 8.0]
-  wp4: [-3.75, -6.5, 5.0]
+  wp1: [0.0, 0.0, 5.0]
+  wp2: [7.5, 0.0, 4.0]
+  wp3: [-3.75, 6.5, 5.0]
+  wp4: [-3.75, -6.5, 4.0]
 
 # Tipo (air / ground) y margen de batería.
 WAYPOINTS:

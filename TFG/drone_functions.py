@@ -618,8 +618,9 @@ def do_recharge(drone: DroneInterface, waypoint: str, duration: float) -> None:
     print(f'[{mission_time(drone):7.3f}][{drone.drone_id}] recharge completada')
 
 
-def do_take_photo(drone: DroneInterface, viewpoint: str, target: str, coords: dict) -> None:
-    """Orientar el gimbal hacia el target y fotografiar exactamente 5 segundos."""
+def do_take_photo(drone: DroneInterface, viewpoint: str, target: str, coords: dict,
+                  photo_time: float) -> None:
+    """Orientar el gimbal hacia el target y fotografiar durante 'photo_time' segundos."""
     p_vp = list(coords[viewpoint])
     p_tgt = list(coords[target])
     t_start = elapsed(drone)
@@ -627,7 +628,7 @@ def do_take_photo(drone: DroneInterface, viewpoint: str, target: str, coords: di
     gimbal_orientation(drone, p_vp, p_tgt)
     take_photo(drone, f'photo_{drone.drone_id}_{target}.png')
 
-    while elapsed(drone) - t_start < 5.0:
+    while elapsed(drone) - t_start < photo_time:
         sleep(0.01)
 
 
@@ -712,7 +713,7 @@ def start_failure_watcher(drones: dict, scenario: dict) -> threading.Thread:
                 sleep(0.05)
             mark_failed(ns)
             request_replan(f'averia simulada en {ns} (t={t_fallo:.1f} s)')
-            return                  # la fase termina aquí; el resto se verá en la siguiente
+            return                  # la fase termina aquí
 
     th = threading.Thread(target=watcher, name='failure_watcher', daemon=True)
     th.start()
@@ -733,6 +734,7 @@ def drone_mission(drone: DroneInterface, plan: list, scenario: dict) -> None:
     config = scenario.get('CONFIG', {})
     takeoff_speed = float(config.get('takeoff_speed', DEFAULT_TAKEOFF_SPEED))
     land_speed = float(config.get('land_speed', DEFAULT_LAND_SPEED))
+    photo_time = float(config['photo_time'])
 
     for action in plan:
         # Gate de replanificación: se comprueba al finalizar una acción, nunca a
@@ -766,7 +768,7 @@ def drone_mission(drone: DroneInterface, plan: list, scenario: dict) -> None:
         elif kind == "fly":
             do_fly(drone, action.arg1, action.arg2, speed, coords, viewpoint_target)
         elif kind == "take_photo":
-            do_take_photo(drone, action.arg1, action.arg2, coords)
+            do_take_photo(drone, action.arg1, action.arg2, coords, photo_time)
             mark_photographed(action.arg2)   # no habrá que repetirlo si se replanifica
         elif kind == "land":
             do_land(drone, action.arg1, action.arg2, land_speed)

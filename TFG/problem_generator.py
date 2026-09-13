@@ -241,7 +241,7 @@ def generate_problem(scenario):
 
     import os
 
-    # expandir ~ a la ruta real del home del usuario (/home/oscar)
+    # expandir ~ a la ruta real del home del usuario
     output_dir = os.path.expanduser("~/MA-LAMA/domains")
     os.makedirs(output_dir, exist_ok=True)  # crear la carpeta si no existe
     output_path = os.path.join(output_dir, config["output_file"])

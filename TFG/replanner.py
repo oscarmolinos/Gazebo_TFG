@@ -57,7 +57,7 @@ def drone_bases(scenario: dict, ns: str) -> tuple:
     """(base_ground, base_air) de un dron, a partir de su goal y LANDING_PADS.
 
     Se usa 'goal' (su base de destino) y no 'start', porque tras la primera fase
-    'start' ya es el waypoint donde se quedó, no su casa.
+    'start' es el waypoint donde se quedó, no su base.
     """
     datos = scenario.get('DRONES', {}).get(ns, {})
     ground = datos.get('goal') or datos.get('start')
@@ -75,7 +75,8 @@ def rebuild_scenario(scenario: dict, positions: dict, photographed: list,
     - los targets ya fotografiados pasan a PHOTOGRAPHED
     - los drones averiados desaparecen, junto con sus bases y las conexiones de
       esas bases: así el planificador no puede mandar a nadie a ese espacio
-    - la batería no se arrastra: se mantiene la del escenario original
+    - la batería no se arrastra: cada dron replanifica con el depósito lleno
+      (battery_level = battery_capacity)
 
     Se trabaja sobre una copia; el escenario que se está volando no se toca
     (los drones averiados todavía necesitan las coordenadas de su base).
@@ -106,10 +107,11 @@ def rebuild_scenario(scenario: dict, positions: dict, photographed: list,
         nuevo['FAILURES'] = [f for f in nuevo['FAILURES']
                              if f.get('drone') in nuevo.get('DRONES', {})]
 
-    # --- 2. Cada dron arranca donde está de verdad ---
+    # --- 2. Cada dron arranca donde está de verdad y con la batería al 100% ---
     for ns, datos in nuevo.get('DRONES', {}).items():
         if ns in positions:
             datos['start'] = positions[ns]
+        datos['battery_level'] = datos.get('battery_capacity', datos.get('battery_level'))
 
     # --- 3. Targets ya fotografiados ---
     nuevo['PHOTOGRAPHED'] = sorted(set(nuevo.get('PHOTOGRAPHED') or []) | set(photographed))

@@ -1,7 +1,9 @@
 #!/bin/bash
 
 # Configurar el resource path para mundos personalizados
-export GZ_SIM_RESOURCE_PATH=$GZ_SIM_RESOURCE_PATH:/home/oscar/Aerostack2/project_gazebo/worlds
+# Se deriva de la ubicacion de este script para que funcione en cualquier pc
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export GZ_SIM_RESOURCE_PATH=$GZ_SIM_RESOURCE_PATH:${PROJECT_DIR}/worlds
 
 usage() {
     echo "  options:"

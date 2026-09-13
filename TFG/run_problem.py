@@ -19,6 +19,7 @@ Uso (en la ruta ~/Aerostack2/project_gazebo/):
 
 import argparse
 import os
+import time
 
 import inquirer
 import yaml
@@ -125,6 +126,7 @@ def main():
         return
 
     drones = df.create_drones(plans, use_sim_time=True, verbose=False)
+    time.sleep(0.1)
     rp.run_mission(drones, scenario, plans, planner=planner)
     df.shutdown_drones(drones)
     df.show_all_photos()

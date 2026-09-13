@@ -71,4 +71,3 @@ DRONES:
 
 # Simula el fallo de un dron en un instante de tiempo
 FAILURES: 
-  - {drone: drone1, at_time: 20.0}

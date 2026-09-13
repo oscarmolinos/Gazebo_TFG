@@ -76,6 +76,12 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 
 
+# Rutas de salida, relativas a la carpeta del proyecto (donde está este módulo)
+# para que no dependan del directorio desde el que se lance el script.
+PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
+PHOTOS_DIR = os.path.join(PROJECT_DIR, 'photos')
+MISSION_TIMES_FILE = os.path.join(PROJECT_DIR, 'tiempos_mision.txt')
+
 # Parámetros de vuelo (constantes; iguales para todos los problemas).
 DEFAULT_SPEED = 1.0
 DEFAULT_LAND_SPEED = 0.5
@@ -247,7 +253,7 @@ def clear_replan() -> None:
         REPLAN['reason'] = None
 
 
-def write_mission_times(path: str = "./TFG/tiempos_mision.txt") -> None:
+def write_mission_times(path: str = MISSION_TIMES_FILE) -> None:
     """Crear (o sobreescribir) el informe de tiempos reales de la misión.
 
     Una fila por acción ejecutada (t_inicio, acción, t_fin, duración) agrupada
@@ -443,7 +449,7 @@ def yaw_to_face(viewpoint: list, target: list) -> float:
 
 
 def take_photo(drone_interface, filename: str, timeout: float = 5.0,
-               photos_dir: str = "./TFG/photos") -> bool:
+               photos_dir: str = PHOTOS_DIR) -> bool:
     """Capturar un frame de la camara y guardarlo como PNG en photos_dir."""
     topic = f'/{drone_interface.drone_id}/sensor_measurements/gimbal/camera/image_raw'
 
@@ -521,13 +527,13 @@ def gimbal_orientation(drone_interface: DroneInterface, viewpoint, target,
     return True
 
 
-def clear_photos(photos_dir: str = "./TFG/photos", pattern: str = "photo_*.png") -> None:
+def clear_photos(photos_dir: str = PHOTOS_DIR, pattern: str = "photo_*.png") -> None:
     """Borrar las fotos de la misión anterior antes de empezar una nueva."""
     for path in glob.glob(os.path.join(photos_dir, pattern)):
         os.remove(path)
 
 
-def show_all_photos(photos_dir: str = "./TFG/photos", pattern: str = "photo_*.png") -> None:
+def show_all_photos(photos_dir: str = PHOTOS_DIR, pattern: str = "photo_*.png") -> None:
     """Mostrar todas las fotos de la misión (de photos_dir) en una sola figura."""
     # buscar los PNG dentro de la carpeta de fotos
     files = sorted(glob.glob(os.path.join(photos_dir, pattern)))

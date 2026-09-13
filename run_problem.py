@@ -13,8 +13,8 @@ Para crear un problema nuevo basta con añadir un YAML en problems/ (copiando
 uno existente como plantilla); este script no necesita cambios.
 
 Uso (en la ruta ~/Aerostack2/project_gazebo/):
-    python3 ./TFG/run_problem.py ./TFG/problems/problem2.yaml
-    python3 ./TFG/run_problem.py ./TFG/problems/problem3.yaml
+    python3 run_problem.py problems/problem2.yaml
+    python3 run_problem.py problems/problem3.yaml
 """
 
 import argparse

@@ -1,5 +1,5 @@
 # =============================================================================
-#  PROBLEMA 2 — escenario para el generador PDDL (ver TFG/problem_generator.py)
+#  PROBLEMA 2 — escenario para el generador PDDL (ver problem_generator.py)
 #  Uso: python3 run_problem.py problems/problem2.yaml
 # =============================================================================
 

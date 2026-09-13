@@ -1,7 +1,5 @@
 rosbags/*
-TFG/photos/
+photos/
 __pycache__/
-.claude/
-CLAUDE.md
-TFG/tiempos_mision.txt
-TFG/problems/generated/
+tiempos_mision.txt
+problems/generated/

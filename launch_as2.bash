@@ -1,55 +1,35 @@
 #!/bin/bash
 
+# Configurar el resource path para mundos personalizados
+# Se deriva de la ubicacion de este script para que funcione en cualquier pc
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export GZ_SIM_RESOURCE_PATH=$GZ_SIM_RESOURCE_PATH:${PROJECT_DIR}/worlds
+
 usage() {
     echo "  options:"
-    echo "      -m: multi agent. Default not set"
-    echo "      -n: select drones namespace to launch, values are comma separated. By default, it will get all drones from world description file"
-    echo "      -s: if set, the simulation will not be launched. Default launch simulation"
-    echo "      -g: launch using gnome-terminal instead of tmux. Default not set"
+    echo "      -n: select drones namespace to launch, values are comma separated."
+    echo "      -s: if set, the simulation will not be launched."
+    echo "      -g: launch using gnome-terminal instead of tmux."
+    echo "      -c: path to simulation config YAML file. Default config/world_problem1.yaml"
 }
 
 # Initialize variables with default values
-swarm="false"
 drones_namespace_comma=""
 launch_simulation="true"
 use_gnome="false"
+simulation_config="config/world_problem1.yaml" # Mapa por defecto si no se pasa -c
 
 # Arg parser
-while getopts "mn:sg" opt; do
+while getopts "n:sgc:" opt; do
   case ${opt} in
-    m )
-      swarm="true"
-      ;;
-    n )
-      drones_namespace_comma="${OPTARG}"
-      ;;
-    s )
-      launch_simulation="false"
-      ;;
-    g )
-      use_gnome="true"
-      ;;
-    \? )
-      echo "Invalid option: -$OPTARG" >&2
-      usage
-      exit 1
-      ;;
-    : )
-      if [[ ! $OPTARG =~ ^[wrt]$ ]]; then
-        echo "Option -$OPTARG requires an argument" >&2
-        usage
-        exit 1
-      fi
-      ;;
+    n ) drones_namespace_comma="${OPTARG}" ;;
+    s ) launch_simulation="false" ;;
+    g ) use_gnome="true" ;;
+    c ) simulation_config="${OPTARG}" ;;
+    \? ) echo "Invalid option: -$OPTARG" >&2; usage; exit 1 ;;
+    : ) echo "Option -$OPTARG requires an argument" >&2; usage; exit 1 ;;
   esac
 done
-
-# Set simulation world description config file
-if [[ ${swarm} == "true" ]]; then
-  simulation_config="config/world_swarm.yaml"
-else
-  simulation_config="config/world.yaml"
-fi
 
 # If no drone namespaces are provided, get them from the world description config file
 if [ -z "$drones_namespace_comma" ]; then
@@ -78,7 +58,7 @@ for namespace in ${drone_namespaces[@]}; do
     base_launch=${base_launch} \
     ${tmuxinator_end}"
 
-  sleep 0.1 # Wait for tmuxinator to finish
+  sleep 1.0 # Wait for tmuxinator to finish
 done
 
 # Attach to tmux session

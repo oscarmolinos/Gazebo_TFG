@@ -64,7 +64,7 @@ def _find_sdf(problem_yaml_path: str) -> str | None:
         return None
     n = m.group(1)
     project_root = os.path.abspath(os.path.join(
-        os.path.dirname(problem_yaml_path), '..', '..'))
+        os.path.dirname(problem_yaml_path), '..'))
     sdf_path = os.path.join(project_root, 'worlds', f'world_problem{n}.sdf')
     return sdf_path if os.path.isfile(sdf_path) else None
 

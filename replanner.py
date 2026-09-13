@@ -47,7 +47,7 @@ from run_planner import run_malama, run_optic
 MAX_REPLANS = 10
 
 # Dónde se dejan los escenarios de cada fase (para depurar y para la memoria).
-GENERATED_DIR = './TFG/problems/generated'
+GENERATED_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'problems', 'generated')
 
 
 # =============================================================================

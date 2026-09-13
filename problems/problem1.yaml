@@ -1,5 +1,5 @@
 # =============================================================================
-#  PROBLEMA 1 — escenario para el generador PDDL (ver TFG/problem_generator.py)
+#  PROBLEMA 1 — escenario para el generador PDDL (ver problem_generator.py)
 #  Datos tomados de mission_problem1.py (un solo dron, dos viewpoints).
 #  Uso: python3 run_problem.py problems/problem1.yaml
 # =============================================================================

@@ -1,5 +1,5 @@
 # =============================================================================
-#  PROBLEMA 4 - escenario para el generador PDDL (ver TFG/problem_generator.py)
+#  PROBLEMA 4 - escenario para el generador PDDL (ver problem_generator.py)
 #  Generado por generar-escenario. Uso: python3 run_problem.py problems/problem4.yaml
 # =============================================================================
 
